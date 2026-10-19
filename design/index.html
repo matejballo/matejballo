@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PÁRA · Design manuál</title>
+  <meta name="description" content="Design manuál a návrh appky PÁRA – saunového klubu z Lužánek. Úterý, 21:00, bez plavek.">
+  <meta name="theme-color" content="#120B08">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FFB627'/%3E%3Cstop offset='.55' stop-color='%23FF5A1F'/%3E%3Cstop offset='1' stop-color='%23D7261E'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Cpath d='M32 11C24 23 17 31 17 40a15 15 0 0 0 30 0c0-9-7-17-15-29z' fill='%23FFF3E6'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      /* Barvy – brand */
+      --uhlik: #120B08;        /* pozadí, noc v sauně */
+      --uhlik-2: #1C120E;      /* karty */
+      --uhlik-3: #2A1B15;      /* okraje, vstupy */
+      --cedr: #8A4B2A;         /* dřevo lavic */
+      --zhar: #FF5A1F;         /* primární akce */
+      --plamen: #FFB627;       /* zvýraznění, série */
+      --lava: #D7261E;         /* varování, top level */
+      --kuze: #F4B896;         /* teplý neutrál */
+      --para: #FFF3E6;         /* text, pára */
+      --para-dim: #C9B4A6;     /* sekundární text */
+      --para-mute: #8C766A;    /* terciární text */
+      --ledovka: #7FD3FF;      /* studená sprcha – jediná studená barva */
+      --ohen: linear-gradient(135deg, #FFB627 0%, #FF5A1F 55%, #D7261E 100%);
+
+      --r-sm: 10px;
+      --r-md: 16px;
+      --r-lg: 24px;
+      --r-pill: 999px;
+
+      --f-display: "Bricolage Grotesque", system-ui, sans-serif;
+      --f-body: "DM Sans", system-ui, sans-serif;
+      --f-mono: "JetBrains Mono", ui-monospace, monospace;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--uhlik);
+      color: var(--para);
+      font: 400 17px/1.6 var(--f-body);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: var(--plamen); }
+    ::selection { background: var(--zhar); color: var(--uhlik); }
+
+    /* zrnitost – jako pára na skle */
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: .06;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+    /* ---------- Navigace ---------- */
+    .top {
+      position: sticky; top: 0; z-index: 50;
+      background: color-mix(in srgb, var(--uhlik) 82%, transparent);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--uhlik-3);
+    }
+    .top .wrap { display: flex; align-items: center; gap: 20px; height: 56px; }
+    .top .brand { display: flex; align-items: center; gap: 10px; font: 800 18px var(--f-display); letter-spacing: .02em; color: var(--para); text-decoration: none; }
+    .top nav { display: flex; gap: 18px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+    .top nav::-webkit-scrollbar { display: none; }
+    .top nav a { color: var(--para-dim); text-decoration: none; font-size: 14px; white-space: nowrap; }
+    .top nav a:hover { color: var(--para); }
+    @media (max-width: 640px) { .top nav { display: none; } }
+
+    /* ---------- Hero ---------- */
+    .hero { position: relative; min-height: 88vh; display: grid; place-items: center; text-align: center; overflow: hidden; isolation: isolate; }
+    .hero::before {
+      content: ""; position: absolute; inset: -20%; z-index: -2;
+      background:
+        radial-gradient(40% 35% at 50% 85%, rgba(255,90,31,.55), transparent 70%),
+        radial-gradient(30% 25% at 30% 95%, rgba(215,38,30,.5), transparent 70%),
+        radial-gradient(30% 25% at 72% 92%, rgba(255,182,39,.35), transparent 70%);
+      filter: blur(30px);
+      animation: dych 7s ease-in-out infinite alternate;
+    }
+    @keyframes dych { from { transform: scale(1) translateY(0); opacity: .85; } to { transform: scale(1.08) translateY(-2%); opacity: 1; } }
+    .embers { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+    .embers span {
+      position: absolute; bottom: -10px; width: 4px; height: 4px; border-radius: 50%;
+      background: var(--plamen); box-shadow: 0 0 10px 2px var(--zhar);
+      animation: jiskra linear infinite;
+    }
+    @keyframes jiskra {
+      0% { transform: translate(0, 0); opacity: 0; }
+      10% { opacity: 1; }
+      100% { transform: translate(var(--dx, 20px), -90vh); opacity: 0; }
+    }
+    .hero .eyebrow { font: 500 13px var(--f-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--plamen); }
+    .hero h1 {
+      margin: 18px 0 10px; font: 800 clamp(88px, 22vw, 240px)/.85 var(--f-display); letter-spacing: -.04em;
+      background: linear-gradient(180deg, var(--para) 30%, var(--kuze) 70%, var(--zhar) 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero p.lead { max-width: 34ch; margin: 0 auto; font-size: clamp(18px, 2.4vw, 22px); color: var(--para-dim); }
+    .hero .facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 32px; }
+    .chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--r-pill); border: 1px solid var(--uhlik-3); background: rgba(28,18,14,.7); font: 500 14px var(--f-mono); color: var(--para); }
+
+    /* ---------- Sekce ---------- */
+    section.s { padding: 96px 0; border-top: 1px solid var(--uhlik-3); }
+    .s-head { display: grid; gap: 12px; margin-bottom: 48px; max-width: 720px; }
+    .s-num { font: 700 13px var(--f-mono); color: var(--zhar); letter-spacing: .12em; }
+    .s-head h2 { margin: 0; font: 800 clamp(36px, 6vw, 64px)/1 var(--f-display); letter-spacing: -.03em; }
+    .s-head p { margin: 0; color: var(--para-dim); font-size: 18px; }
+    h3 { font: 600 22px/1.2 var(--f-display); margin: 0 0 8px; letter-spacing: -.01em; }
+    .muted { color: var(--para-dim); }
+    .mute { color: var(--para-mute); }
+    .mono { font-family: var(--f-mono); }
+
+    .grid { display: grid; gap: 16px; }
+    .g2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+    .g3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+    .g4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+    .card { background: var(--uhlik-2); border: 1px solid var(--uhlik-3); border-radius: var(--r-lg); padding: 24px; }
+
+    /* ---------- 01 Esence ---------- */
+    .pillars .card { position: relative; overflow: hidden; }
+    .pillars .ico { font-size: 32px; line-height: 1; margin-bottom: 16px; display: block; }
+    .pillars p { margin: 0; color: var(--para-dim); }
+    .manifest { font: 600 clamp(24px, 3.6vw, 38px)/1.25 var(--f-display); letter-spacing: -.02em; max-width: 26ch; margin: 56px 0 0; }
+    .manifest em { font-style: normal; background: var(--ohen); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+    /* ---------- 02 Logo ---------- */
+    .logo-stage { display: grid; place-items: center; min-height: 280px; border-radius: var(--r-lg); background: radial-gradient(60% 80% at 50% 120%, rgba(255,90,31,.35), transparent 70%), var(--uhlik-2); border: 1px solid var(--uhlik-3); }
+    .wordmark { display: flex; align-items: center; gap: 18px; }
+    .wordmark .wm { font: 800 clamp(56px, 10vw, 96px)/1 var(--f-display); letter-spacing: -.03em; }
+    .wm .acc { color: var(--zhar); }
+    .logo-vars { margin-top: 16px; }
+    .logo-vars .card { display: grid; place-items: center; min-height: 150px; gap: 10px; text-align: center; }
+    .logo-vars .light { background: var(--para); color: var(--uhlik); border-color: transparent; }
+    .logo-vars .fire { background: var(--ohen); color: var(--uhlik); border-color: transparent; }
+    .logo-vars small { font: 500 12px var(--f-mono); opacity: .7; }
+
+    /* ---------- 03 Barvy ---------- */
+    .swatch { border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--uhlik-3); background: var(--uhlik-2); }
+    .swatch .c { height: 120px; }
+    .swatch .m { padding: 14px 16px 16px; }
+    .swatch b { display: block; font: 600 17px var(--f-display); }
+    .swatch .hex { font: 500 13px var(--f-mono); color: var(--para-dim); }
+    .swatch .use { margin-top: 6px; font-size: 13px; color: var(--para-mute); }
+    .gradient-bar { height: 96px; border-radius: var(--r-lg); background: var(--ohen); margin-top: 16px; display: flex; align-items: flex-end; justify-content: space-between; padding: 14px 18px; color: var(--uhlik); font: 700 13px var(--f-mono); }
+    .ratio { display: flex; height: 18px; border-radius: var(--r-pill); overflow: hidden; margin-top: 16px; }
+    .ratio div { height: 100%; }
+
+    /* ---------- 04 Typo ---------- */
+    .type-row { display: grid; grid-template-columns: 140px 1fr; gap: 24px; padding: 28px 0; border-bottom: 1px solid var(--uhlik-3); align-items: baseline; }
+    .type-row:last-child { border-bottom: 0; }
+    .type-row .lbl { font: 500 12px var(--f-mono); color: var(--para-mute); text-transform: uppercase; letter-spacing: .1em; }
+    @media (max-width: 640px) { .type-row { grid-template-columns: 1fr; gap: 8px; } }
+
+    /* ---------- 05 Hlas ---------- */
+    .voice { display: grid; gap: 12px; }
+    .say { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .say > div { padding: 16px 18px; border-radius: var(--r-md); font-size: 15px; }
+    .say .no { background: rgba(140,118,106,.08); border: 1px dashed var(--uhlik-3); color: var(--para-mute); text-decoration: line-through; text-decoration-color: rgba(215,38,30,.6); }
+    .say .yes { background: rgba(255,90,31,.08); border: 1px solid rgba(255,90,31,.35); }
+    .say small { display: block; font: 700 11px var(--f-mono); letter-spacing: .1em; margin-bottom: 4px; text-decoration: none; }
+    .say .no small { color: var(--lava); }
+    .say .yes small { color: var(--zhar); }
+    @media (max-width: 640px) { .say { grid-template-columns: 1fr; } }
+
+    /* ---------- 06 Hra ---------- */
+    .rules { width: 100%; border-collapse: collapse; }
+    .rules td { padding: 14px 4px; border-bottom: 1px solid var(--uhlik-3); vertical-align: top; }
+    .rules td:last-child { text-align: right; font: 700 16px var(--f-mono); color: var(--plamen); white-space: nowrap; }
+    .rules td.neg { color: var(--lava) !important; }
+    .rules small { display: block; color: var(--para-mute); font-size: 13px; }
+    .thermo { display: grid; gap: 8px; }
+    .lvl { display: grid; grid-template-columns: 64px 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; border-radius: var(--r-md); background: var(--uhlik); border: 1px solid var(--uhlik-3); }
+    .lvl .t { font: 700 18px var(--f-mono); }
+    .lvl b { font: 600 16px var(--f-display); }
+    .lvl small { color: var(--para-mute); font: 500 12px var(--f-mono); }
+
+    /* ---------- 07 Komponenty ---------- */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 52px; padding: 0 22px; border-radius: var(--r-pill); border: 0; font: 700 16px var(--f-body); cursor: pointer; transition: transform .15s, box-shadow .2s; }
+    .btn:active { transform: scale(.97); }
+    .btn-fire { background: var(--ohen); color: var(--uhlik); box-shadow: 0 8px 28px -8px rgba(255,90,31,.7); }
+    .btn-fire:hover { box-shadow: 0 10px 36px -6px rgba(255,90,31,.9); }
+    .btn-ghost { background: transparent; color: var(--para); border: 1px solid var(--uhlik-3); }
+    .btn-ice { background: rgba(127,211,255,.12); color: var(--ledovka); border: 1px solid rgba(127,211,255,.3); }
+    .btn-sm { height: 40px; padding: 0 16px; font-size: 14px; }
+    .comp-stage { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .comp-label { font: 500 12px var(--f-mono); color: var(--para-mute); margin: 0 0 14px; text-transform: uppercase; letter-spacing: .1em; }
+
+    .ava { --s: 44px; position: relative; width: var(--s); height: var(--s); border-radius: 50%; display: grid; place-items: center; font: 800 calc(var(--s) * .36) var(--f-display); color: var(--uhlik); flex: none; }
+    .ava.ring::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--plamen); box-shadow: 0 0 12px rgba(255,182,39,.55); }
+    .ava.off { filter: grayscale(1) brightness(.5); }
+    .a1 { background: linear-gradient(135deg,#FFB627,#FF7A1F); }
+    .a2 { background: linear-gradient(135deg,#FF8A5B,#D7261E); }
+    .a3 { background: linear-gradient(135deg,#F4B896,#E07A4F); }
+    .a4 { background: linear-gradient(135deg,#FFD27A,#FFB627); }
+    .a5 { background: linear-gradient(135deg,#E05A3B,#8A4B2A); }
+    .a6 { background: linear-gradient(135deg,#FF5A1F,#B81E3E); }
+    .a7 { background: linear-gradient(135deg,#FFC9A3,#FF8A5B); }
+    .a8 { background: linear-gradient(135deg,#D9A27A,#8A4B2A); }
+    .a9 { background: linear-gradient(135deg,#FFE0B0,#F4B896); }
+
+    .streak { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--r-pill); background: rgba(255,182,39,.12); color: var(--plamen); font: 700 14px var(--f-mono); }
+    .drops { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--r-pill); background: rgba(255,243,230,.08); font: 700 14px var(--f-mono); }
+    .tag { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: var(--r-pill); font: 700 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+    .tag-hot { background: var(--zhar); color: var(--uhlik); }
+    .tag-paid { background: rgba(255,243,230,.08); color: var(--para-dim); }
+    .tag-due { background: rgba(215,38,30,.18); color: #FF7B6E; }
+
+    /* ---------- Telefony ---------- */
+    .phones { display: flex; gap: 28px; overflow-x: auto; padding: 8px 4px 32px; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--uhlik-3) transparent; }
+    .phone-col { flex: none; width: 300px; scroll-snap-align: start; }
+    .phone-col h4 { margin: 18px 0 4px; font: 600 18px var(--f-display); }
+    .phone-col p { margin: 0; color: var(--para-dim); font-size: 14px; }
+    .phone {
+      position: relative; width: 300px; height: 620px; border-radius: 44px; padding: 10px;
+      background: #050302; border: 1px solid #2c1d16;
+      box-shadow: 0 40px 80px -30px rgba(255,90,31,.35), inset 0 0 0 2px #1a110d;
+    }
+    .screen { position: relative; height: 100%; border-radius: 34px; overflow: hidden; background: var(--uhlik); display: flex; flex-direction: column; font-size: 14px; }
+    .notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 90px; height: 26px; border-radius: 20px; background: #050302; z-index: 5; }
+    .status { display: flex; justify-content: space-between; padding: 14px 24px 0; font: 600 12px var(--f-body); height: 44px; }
+    .sc { flex: 1; overflow: hidden; padding: 6px 18px 0; display: flex; flex-direction: column; gap: 12px; }
+    .sc h5 { margin: 0; font: 800 28px/1.05 var(--f-display); letter-spacing: -.02em; }
+    .sc .sub { font: 500 11px var(--f-mono); color: var(--para-mute); letter-spacing: .08em; text-transform: uppercase; }
+    .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px 8px 22px; border-top: 1px solid var(--uhlik-3); background: var(--uhlik); }
+    .tabbar div { display: grid; place-items: center; gap: 2px; font-size: 10px; color: var(--para-mute); }
+    .tabbar div i { font-style: normal; font-size: 18px; filter: grayscale(1) brightness(.8); }
+    .tabbar div.on { color: var(--para); }
+    .tabbar div.on i { filter: none; }
+    .mini { background: var(--uhlik-2); border: 1px solid var(--uhlik-3); border-radius: 18px; padding: 14px; }
+    .heat {
+      position: relative; border-radius: 22px; padding: 18px; overflow: hidden; color: var(--uhlik);
+      background: var(--ohen);
+    }
+    .heat::after { content: ""; position: absolute; right: -30px; top: -30px; width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, rgba(255,243,230,.45), transparent 70%); }
+    .heat .big { font: 800 44px/1 var(--f-display); letter-spacing: -.03em; }
+    .row { display: flex; align-items: center; gap: 10px; }
+    .between { justify-content: space-between; }
+    .stack { display: flex; }
+    .stack .ava { --s: 32px; margin-left: -8px; border: 2px solid var(--uhlik-2); }
+    .stack .ava:first-child { margin-left: 0; }
+    .lb-row { display: grid; grid-template-columns: 22px 34px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--uhlik-3); }
+    .lb-row:last-child { border-bottom: 0; }
+    .lb-row .ava { --s: 34px; }
+    .lb-row .pos { font: 700 13px var(--f-mono); color: var(--para-mute); }
+    .lb-row b { display: block; font: 600 14px var(--f-body); }
+    .lb-row small { font-size: 11px; color: var(--para-mute); white-space: nowrap; }
+    .lb-row .pts { font: 700 14px var(--f-mono); text-align: right; }
+    .podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; text-align: center; }
+    .podium .ava { margin: 0 auto 6px; }
+    .podium .p { border-radius: 14px 14px 4px 4px; padding: 8px 4px; font: 700 12px var(--f-mono); }
+    .pbar { height: 8px; border-radius: 99px; background: var(--uhlik-3); overflow: hidden; }
+    .pbar > div { height: 100%; border-radius: 99px; background: var(--ohen); }
+    .weeks { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+    .weeks span { aspect-ratio: 1; border-radius: 4px; background: var(--uhlik-3); }
+    .weeks span.y { background: var(--zhar); }
+    .weeks span.r { background: var(--plamen); box-shadow: 0 0 8px rgba(255,182,39,.6); }
+    .ritual-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 99px; border: 1px solid var(--uhlik-3); font-size: 12px; }
+    .ritual-chip.on { border-color: var(--zhar); background: rgba(255,90,31,.1); }
+    .vote { position: relative; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--uhlik-3); overflow: hidden; }
+    .vote .fill { position: absolute; inset: 0 auto 0 0; background: rgba(255,90,31,.14); }
+    .vote.lead { border-color: var(--zhar); }
+    .vote .in { position: relative; display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+
+    /* ---------- Pohyb ---------- */
+    .motion-demo { height: 180px; border-radius: var(--r-lg); position: relative; overflow: hidden; background: var(--uhlik-2); border: 1px solid var(--uhlik-3); display: grid; place-items: center; }
+    .steam { position: absolute; bottom: 30px; width: 14px; height: 60px; border-radius: 50%; background: rgba(255,243,230,.35); filter: blur(8px); animation: steam 3.2s ease-out infinite; }
+    @keyframes steam { 0% { transform: translateY(20px) scaleX(1); opacity: 0; } 30% { opacity: .9; } 100% { transform: translateY(-90px) scaleX(2.4); opacity: 0; } }
+    .pulse { width: 72px; height: 72px; border-radius: 50%; background: var(--ohen); animation: pulse 1.8s ease-in-out infinite; box-shadow: 0 0 0 0 rgba(255,90,31,.6); }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,90,31,.6); } 70% { box-shadow: 0 0 0 26px rgba(255,90,31,0); } 100% { box-shadow: 0 0 0 0 rgba(255,90,31,0); } }
+    .shimmer { font: 800 48px var(--f-display); background: linear-gradient(90deg, var(--kuze), var(--plamen), var(--zhar), var(--plamen), var(--kuze)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: sh 3s linear infinite; }
+    @keyframes sh { to { background-position: -200% 0; } }
+
+    /* ---------- Roadmap ---------- */
+    .steps { counter-reset: st; display: grid; gap: 12px; }
+    .steps li { list-style: none; counter-increment: st; display: grid; grid-template-columns: 48px 1fr; gap: 16px; padding: 18px; border-radius: var(--r-md); background: var(--uhlik-2); border: 1px solid var(--uhlik-3); }
+    .steps li::before { content: counter(st, decimal-leading-zero); font: 700 16px var(--f-mono); color: var(--zhar); }
+    .steps p { margin: 4px 0 0; color: var(--para-dim); font-size: 15px; }
+    .steps { padding: 0; margin: 0; }
+
+    footer.end { padding: 64px 0 80px; border-top: 1px solid var(--uhlik-3); text-align: center; color: var(--para-mute); font-size: 14px; }
+    footer.end .wm { font: 800 40px var(--f-display); color: var(--para); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .embers { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><use href="#mark"/></svg>PÁRA</a>
+    <nav>
+      <a href="#esence">Esence</a>
+      <a href="#logo">Logo</a>
+      <a href="#barvy">Barvy</a>
+      <a href="#typo">Písmo</a>
+      <a href="#hlas">Hlas</a>
+      <a href="#hra">Hra</a>
+      <a href="#komponenty">Komponenty</a>
+      <a href="#appka">Appka</a>
+    </nav>
+  </div>
+</header>
+
+<!-- SVG symboly -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="ohen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFB627"/><stop offset=".55" stop-color="#FF5A1F"/><stop offset="1" stop-color="#D7261E"/>
+    </linearGradient>
+    <symbol id="mark" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="16" fill="url(#ohen)"/>
+      <path d="M32 11C24 23 17 31 17 40a15 15 0 0 0 30 0c0-9-7-17-15-29z" fill="#FFF3E6"/>
+      <path d="M25 41c2.4-2.6 4.8-2.6 7 0s4.6 2.6 7 0" fill="none" stroke="#FF5A1F" stroke-width="3.2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="mark-mono" viewBox="0 0 64 64">
+      <path d="M32 6C22 21 12 31 12 42a20 20 0 0 0 40 0C52 31 42 21 32 6z" fill="currentColor"/>
+      <path d="M23 43c3-3.2 6-3.2 9 0s6 3.2 9 0" fill="none" stroke="var(--knock, #FFF3E6)" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="embers" id="embers"></div>
+  <div class="wrap">
+    <div class="eyebrow">Saunový klub Lužánky · Design manuál v1</div>
+    <h1>PÁRA</h1>
+    <p class="lead">Každé úterý ve 21:00. Šest až devět kámošů, jedna soukromá sauna, nula plavek.</p>
+    <div class="facts">
+      <span class="chip">🗓 Úterý 21:00</span>
+      <span class="chip">🌡 90 °C</span>
+      <span class="chip">🧖 Dress code: ručník (volitelný)</span>
+      <span class="chip">💸 160 Kč / hlava</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 01 ESENCE ============ -->
+<section class="s" id="esence">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">01 — ESENCE</span>
+      <h2>Horko, pot a parta.</h2>
+      <p>PÁRA nahrazuje excel s checkboxy. Zapíše, kdo přišel, spočítá, kdo kolik platí, a z úterní sauny udělá půlroční hru o cenu, na které se pak dohodneme hlasováním.</p>
+    </div>
+    <div class="grid g4 pillars">
+      <div class="card"><span class="ico">🔥</span><h3>Hot</h3><p>Oheň, žár, uhlíky. Barvy hoří, typo je tlustá a sebevědomá. Jsme v sauně a vypadáme dobře.</p></div>
+      <div class="card"><span class="ico">🍻</span><h3>Kámoši</h3><p>Žádná fitness appka. Mluvíme jako na lavici: krátce, s nadhledem a jménem.</p></div>
+      <div class="card"><span class="ico">😂</span><h3>Sranda</h3><p>Hra se hraje, ale vážně se nebere. Body za pot, tresty za vymlouvání.</p></div>
+      <div class="card"><span class="ico">🪶</span><h3>Minimal</h3><p>Jeden úkon = jeden tap. Check-in, rituál, platba. Nic víc v úterý ve 20:55 nepotřebuješ.</p></div>
+    </div>
+    <p class="manifest">Nejsme wellness. Jsme <em>šest nahých lidí v dřevěné krabici</em> a chceme vědět, kdo z nás vydrží nejdéle.</p>
+  </div>
+</section>
+
+<!-- ============ 02 LOGO ============ -->
+<section class="s" id="logo">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">02 — LOGO</span>
+      <h2>Kapka, co hoří.</h2>
+      <p>Značka spojuje tři věci v jednom tvaru: kapku potu, plamen a vlnku páry uvnitř. Čárka nad Á je vždy v barvě Žár – to je naše malá poznávací jiskra.</p>
+    </div>
+    <div class="logo-stage">
+      <div class="wordmark">
+        <svg width="96" height="96" viewBox="0 0 64 64" aria-label="Značka PÁRA"><use href="#mark"/></svg>
+        <span class="wm">P<span class="acc">Á</span>RA</span>
+      </div>
+    </div>
+    <div class="grid g4 logo-vars">
+      <div class="card"><svg width="64" height="64" viewBox="0 0 64 64"><use href="#mark"/></svg><small>App ikona</small></div>
+      <div class="card light"><svg width="56" height="56" viewBox="0 0 64 64" style="color:#120B08;--knock:#FFF3E6"><use href="#mark-mono"/></svg><small>Mono na světlé</small></div>
+      <div class="card fire"><svg width="56" height="56" viewBox="0 0 64 64" style="color:#120B08;--knock:#FF5A1F"><use href="#mark-mono"/></svg><small>Na ohni</small></div>
+      <div class="card"><svg width="56" height="56" viewBox="0 0 64 64" style="color:#FFF3E6;--knock:#120B08"><use href="#mark-mono"/></svg><small>Mono na tmavé</small></div>
+    </div>
+    <p class="mute" style="margin-top:16px;font-size:14px">Ochranná zóna = výška vlnky. Minimální velikost značky 20 px, wordmarku 64 px na šířku. Logo nikdy nenatahovat, neotáčet, nedávat na fotky bez ztmavení.</p>
+  </div>
+</section>
+
+<!-- ============ 03 BARVY ============ -->
+<section class="s" id="barvy">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">03 — BARVY</span>
+      <h2>Od uhlíku po lávu.</h2>
+      <p>Tmavé pozadí jako sauna ve 21:00, teplá světla jako kameny na kamnech. Jediná studená barva je Ledovka – patří jen ochlazení a pauzám.</p>
+    </div>
+    <div class="grid g4">
+      <div class="swatch"><div class="c" style="background:#120B08;border-bottom:1px solid var(--uhlik-3)"></div><div class="m"><b>Uhlík</b><span class="hex">#120B08</span><div class="use">Pozadí, 70 % plochy</div></div></div>
+      <div class="swatch"><div class="c" style="background:#1C120E;border-bottom:1px solid var(--uhlik-3)"></div><div class="m"><b>Uhlík 2</b><span class="hex">#1C120E</span><div class="use">Karty a panely</div></div></div>
+      <div class="swatch"><div class="c" style="background:#FF5A1F"></div><div class="m"><b>Žár</b><span class="hex">#FF5A1F</span><div class="use">Primární akce, aktivní stav</div></div></div>
+      <div class="swatch"><div class="c" style="background:#FFB627"></div><div class="m"><b>Plamen</b><span class="hex">#FFB627</span><div class="use">Série, body, highlights</div></div></div>
+      <div class="swatch"><div class="c" style="background:#D7261E"></div><div class="m"><b>Láva</b><span class="hex">#D7261E</span><div class="use">Dluhy, tresty, top level</div></div></div>
+      <div class="swatch"><div class="c" style="background:#F4B896"></div><div class="m"><b>Kůže</b><span class="hex">#F4B896</span><div class="use">Avatary, ilustrace, teplý neutrál</div></div></div>
+      <div class="swatch"><div class="c" style="background:#FFF3E6"></div><div class="m"><b>Pára</b><span class="hex">#FFF3E6</span><div class="use">Text a ikony</div></div></div>
+      <div class="swatch"><div class="c" style="background:#7FD3FF"></div><div class="m"><b>Ledovka</b><span class="hex">#7FD3FF</span><div class="use">Jen ochlazení / pauza</div></div></div>
+    </div>
+    <div class="gradient-bar"><span>OHEŇ</span><span>#FFB627 → #FF5A1F → #D7261E · 135°</span></div>
+    <p class="mute" style="margin:24px 0 0;font-size:14px">Poměr barev na obrazovce</p>
+    <div class="ratio" aria-hidden="true">
+      <div style="width:70%;background:#120B08;border:1px solid var(--uhlik-3)"></div>
+      <div style="width:15%;background:#1C120E"></div>
+      <div style="width:8%;background:#FFF3E6"></div>
+      <div style="width:5%;background:#FF5A1F"></div>
+      <div style="width:2%;background:#FFB627"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 TYPO ============ -->
+<section class="s" id="typo">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">04 — PÍSMO</span>
+      <h2>Tlustě. Teple. Česky.</h2>
+      <p>Tři rodiny z Google Fonts, všechny s plnou češtinou. Nadpisy křičí, text je v klidu, čísla jsou technická jako teploměr.</p>
+    </div>
+    <div class="card">
+      <div class="type-row"><span class="lbl">Display<br>Bricolage Grotesque 800</span><span style="font:800 clamp(40px,7vw,72px)/1 var(--f-display);letter-spacing:-.03em">Žhavé úterý</span></div>
+      <div class="type-row"><span class="lbl">Nadpis<br>Bricolage 600</span><span style="font:600 28px/1.2 var(--f-display)">Kdo dnes vede rituál?</span></div>
+      <div class="type-row"><span class="lbl">Text<br>DM Sans 400 / 500</span><span class="muted">Příliš žluťoučký kůň úpěl ďábelské ódy. A pak si šel sednout na horní lavici, protože dole je to pro amatéry.</span></div>
+      <div class="type-row"><span class="lbl">Čísla<br>JetBrains Mono 700</span><span style="font:700 32px var(--f-mono);color:var(--plamen)">92 °C · 🔥 7 · 160 Kč</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 HLAS ============ -->
+<section class="s" id="hlas">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">05 — HLAS</span>
+      <h2>Mluvíme jako na lavici.</h2>
+      <p>Tykáme, oslovujeme jménem v 5. pádě, používáme saunový slang. Žádné „gratulujeme k dosažení cíle“. Lehce dvojsmyslné je OK, trapné ne.</p>
+    </div>
+    <div class="voice">
+      <div class="say"><div class="no"><small>NE</small>Potvrďte prosím svou účast na dnešní relaci.</div><div class="yes"><small>ANO</small>Matěji, jdeš se dneska potit? 🔥</div></div>
+      <div class="say"><div class="no"><small>NE</small>Gratulujeme! Dosáhli jste 5 návštěv v řadě.</div><div class="yes"><small>ANO</small>5 týdnů v kuse. Tohle už je vztah.</div></div>
+      <div class="say"><div class="no"><small>NE</small>Máte neuhrazenou platbu ve výši 320 Kč.</div><div class="yes"><small>ANO</small>Visíš kase 320 Kč. Pot se nepočítá jako měna.</div></div>
+      <div class="say"><div class="no"><small>NE</small>Byl vám přidělen rituál.</div><div class="yes"><small>ANO</small>Los padl na tebe. Naběračka je tvoje. 🪣</div></div>
+      <div class="say"><div class="no"><small>NE</small>Účast zrušena.</div><div class="yes"><small>ANO</small>Vynecháváš? Dobře. Sauna si to zapamatuje. −5 💧</div></div>
+    </div>
+    <div class="grid g3" style="margin-top:32px">
+      <div class="card"><h3>Slovník</h3><p class="muted" style="margin:0;font-size:15px"><b style="color:var(--para)">Kapky 💧</b> – body<br><b style="color:var(--para)">Série 🔥</b> – týdny v řadě<br><b style="color:var(--para)">Naběračka</b> – kdo vede rituál<br><b style="color:var(--para)">Kasa</b> – platby<br><b style="color:var(--para)">Sezóna</b> – jaro / podzim</p></div>
+      <div class="card"><h3>Emoji systém</h3><p class="muted" style="margin:0;font-size:15px">🔥 série · 💧 kapky · 🌿 rituál · 🧊 ochlazení · 🏆 sezóna · 🧖 účast · 🪣 naběračka. Max. 1 emoji na zprávu.</p></div>
+      <div class="card"><h3>Nahota</h3><p class="muted" style="margin:0;font-size:15px">Narážky ano (ručník, „nahoře bez“, 🍑 jednou za sezónu), fotky ne. Appka nikdy nežádá a neukládá fotky ze sauny.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 HRA ============ -->
+<section class="s" id="hra">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">06 — HRA</span>
+      <h2>Kapky, série, teplota.</h2>
+      <p>Každá sezóna (jaro, podzim) má ~14 úterků. Sbíráš kapky, držíš sérii a stoupáš po teploměru. Kdo má na konci sezóny nejvíc kapek, bere cenu, o které jsme předem hlasovali.</p>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <h3>Za co jsou kapky 💧</h3>
+        <table class="rules">
+          <tr><td>Check-in v sauně<small>Check-in v úterý mezi 20:30 a 23:00</small></td><td>+10</td></tr>
+          <tr><td>Série<small>+2 za každý další týden v řadě, max +20</small></td><td>+2×🔥</td></tr>
+          <tr><td>Vedení rituálu<small>Aufguss, peeling, cokoliv s naběračkou</small></td><td>+15</td></tr>
+          <tr><td>Rituál ostatní ocenili<small>Každá 🔥 reakce od účastníků</small></td><td>+1</td></tr>
+          <tr><td>Přivedený host<small>Max. 1× za měsíc</small></td><td>+5</td></tr>
+          <tr><td>Celá sezóna bez absence<small>Zlatý ručník</small></td><td>+50</td></tr>
+          <tr><td>Odhlášení po pondělní 20:00<small>Kvůli plánování a placení</small></td><td class="neg">−5</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Teploměr (levely sezóny)</h3>
+        <div class="thermo">
+          <div class="lvl"><span class="t" style="color:#C9B4A6">40°</span><span><b>Vlažňák</b><br><small>0+ kapek</small></span><span>🫧</span></div>
+          <div class="lvl"><span class="t" style="color:#F4B896">60°</span><span><b>Zahřátý</b><br><small>50+ kapek</small></span><span>🌤</span></div>
+          <div class="lvl"><span class="t" style="color:#FFB627">80°</span><span><b>Rozpálený</b><br><small>120+ kapek</small></span><span>☀️</span></div>
+          <div class="lvl"><span class="t" style="color:#FF8A3B">90°</span><span><b>Žhavý</b><br><small>200+ kapek</small></span><span>🔥</span></div>
+          <div class="lvl"><span class="t" style="color:#FF5A1F">100°</span><span><b>Vroucí</b><br><small>300+ kapek</small></span><span>♨️</span></div>
+          <div class="lvl" style="border-color:var(--lava);background:rgba(215,38,30,.1)"><span class="t" style="color:#FF5A4E">110°</span><span><b>Lávový</b><br><small>420+ kapek · legenda</small></span><span>🌋</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid g3" style="margin-top:16px">
+      <div class="card"><h3>🪣 Párování rituálů</h3><p class="muted" style="margin:0;font-size:15px">V pondělí ve 12:00 appka vylosuje saunamistra z těch, kdo se přihlásili. Váha losu = týdny od posledního rituálu. Vylosovaný může naběračku <b style="color:var(--para)">předat dál</b> – další v pořadí dostane bonus +5.</p></div>
+      <div class="card"><h3>💸 Kasa</h3><p class="muted" style="margin:0;font-size:15px">Pronájem 750 Kč se dělí mezi přítomné, zaokrouhleno nahoru na 160 Kč/os. Přebytek (jaro 2026: +220 Kč) jde automaticky do <b style="color:var(--para)">fondu na cenu</b>. Platba přes QR kód.</p></div>
+      <div class="card"><h3>🏆 Konec sezóny</h3><p class="muted" style="margin:0;font-size:15px">3 týdny před koncem se otevře hlasování o cenu (každý 1 návrh, 2 hlasy). Vítěz sezóny dostane cenu z fondu a odznak na avatar na celou další sezónu.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 KOMPONENTY ============ -->
+<section class="s" id="komponenty">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">07 — KOMPONENTY</span>
+      <h2>Stavebnice.</h2>
+      <p>Málo prvků, velké dotykové plochy (min. 44 px), všechno zaoblené jako ohlazené dřevo. Rádiusy 10 / 16 / 24 / pill.</p>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <p class="comp-label">Tlačítka</p>
+        <div class="comp-stage">
+          <button class="btn btn-fire">Jdu se potit 🔥</button>
+          <button class="btn btn-ghost">Dnes vynechám</button>
+          <button class="btn btn-ice btn-sm">🧊 Pauza</button>
+          <button class="btn btn-fire btn-sm">Zaplatit 160 Kč</button>
+        </div>
+      </div>
+      <div class="card">
+        <p class="comp-label">Avatary · ring = aktivní série · šedá = nejde</p>
+        <div class="comp-stage">
+          <div class="ava a1 ring" style="--s:56px">T</div>
+          <div class="ava a2 ring" style="--s:56px">M</div>
+          <div class="ava a3" style="--s:56px">D</div>
+          <div class="ava a4 off" style="--s:56px">K</div>
+          <div class="stack" style="margin-left:12px">
+            <div class="ava a5">Č</div><div class="ava a6">A</div><div class="ava a7">Z</div><div class="ava a8">B</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <p class="comp-label">Odznaky a štítky</p>
+        <div class="comp-stage">
+          <span class="streak">🔥 7</span>
+          <span class="drops">💧 186</span>
+          <span class="tag tag-hot">Dnes</span>
+          <span class="tag tag-paid">Zaplaceno</span>
+          <span class="tag tag-due">Dluh 320 Kč</span>
+        </div>
+      </div>
+      <div class="card">
+        <p class="comp-label">Řádek žebříčku</p>
+        <div class="lb-row" style="border:0"><span class="pos">1.</span><div class="ava a1 ring">T</div><div><b>Terka</b><small>110° Lávový · 🔥 9</small></div><span class="pts">💧 312</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 08 APPKA ============ -->
+<section class="s" id="appka">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">08 — APPKA</span>
+      <h2>Pět obrazovek. Víc netřeba.</h2>
+      <p>Mobilní web (PWA) s ikonou na ploše. Spodní lišta: Dnes · Žebříček · Rituály · Kasa · Sezóna. Posouvej do strany →</p>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="phones">
+
+      <!-- DNES -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="status"><span>20:47</span><span>●●● 🔋</span></div>
+          <div class="sc">
+            <div><div class="sub">Úterý 20. 10. · Lužánky</div><h5>Matěji, jdeš se potit?</h5></div>
+            <div class="heat">
+              <div class="row between"><span class="mono" style="font-size:11px;font-weight:700;letter-spacing:.08em">ZAČÍNÁME ZA</span><span class="mono" style="font-size:12px;font-weight:700">92 °C</span></div>
+              <div class="big" style="margin:6px 0 14px">13 min</div>
+              <div class="row between">
+                <div class="stack"><div class="ava a1">T</div><div class="ava a3">D</div><div class="ava a5">Č</div><div class="ava a7">Z</div><div class="ava a8">B</div></div>
+                <span style="font-weight:700;font-size:13px;white-space:nowrap">5 jde · +ty?</span>
+              </div>
+            </div>
+            <button class="btn btn-fire" style="width:100%">Jdu se potit 🔥</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%">Dnes vynechám</button>
+            <div class="mini row between">
+              <div><div class="sub">Rituál dnes</div><b>🌿 Eukalyptus & led</b><div class="mute" style="font-size:12px">naběračka: David</div></div>
+              <div class="ava a3 ring" style="--s:38px">D</div>
+            </div>
+            <div class="row" style="gap:8px"><span class="streak">🔥 7 týdnů</span><span class="drops">💧 186</span></div>
+          </div>
+          <div class="tabbar"><div class="on"><i>🧖</i>Dnes</div><div><i>🏆</i>Žebříček</div><div><i>🌿</i>Rituály</div><div><i>💸</i>Kasa</div><div><i>🗳</i>Sezóna</div></div>
+        </div></div>
+        <h4>Dnes</h4><p>Jedno velké tlačítko. Odpočet, kdo jde a kdo vede rituál. Po tapu stoupne pára a přičte se +10 💧.</p>
+      </div>
+
+      <!-- ŽEBŘÍČEK -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="status"><span>21:02</span><span>●●● 🔋</span></div>
+          <div class="sc">
+            <div><div class="sub">Podzim 2026 · týden 7 / 14</div><h5>Žebříček</h5></div>
+            <div class="podium">
+              <div><div class="ava a3" style="--s:42px">D</div><div class="p" style="background:var(--uhlik-3);height:54px">2.<br>💧 241</div></div>
+              <div><div class="ava a1 ring" style="--s:52px">T</div><div class="p" style="background:var(--ohen);color:var(--uhlik);height:78px">1. 👑<br>💧 312</div></div>
+              <div><div class="ava a2" style="--s:42px">M</div><div class="p" style="background:var(--uhlik-3);height:40px">3.<br>💧 186</div></div>
+            </div>
+            <div class="mini" style="padding:6px 14px">
+              <div class="lb-row"><span class="pos">4.</span><div class="ava a5">Č</div><div><b>Čermi</b><small>90° Žhavý · 🔥 3</small></div><span class="pts">💧 164</span></div>
+              <div class="lb-row"><span class="pos">5.</span><div class="ava a6">A</div><div><b>Adéla</b><small>80° Rozpálený · 🔥 4</small></div><span class="pts">💧 151</span></div>
+              <div class="lb-row"><span class="pos">6.</span><div class="ava a7">Z</div><div><b>Zůza</b><small>80° Rozpálený</small></div><span class="pts">💧 128</span></div>
+            </div>
+          </div>
+          <div class="tabbar"><div><i>🧖</i>Dnes</div><div class="on"><i>🏆</i>Žebříček</div><div><i>🌿</i>Rituály</div><div><i>💸</i>Kasa</div><div><i>🗳</i>Sezóna</div></div>
+        </div></div>
+        <h4>Žebříček</h4><p>Podium, teplotní level a série u každého. Korunka 👑 pro lídra, minulý vítěz má na avataru odznak.</p>
+      </div>
+
+      <!-- RITUÁLY -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="status"><span>12:00</span><span>●●● 🔋</span></div>
+          <div class="sc">
+            <div><div class="sub">Pondělí · los na zítra</div><h5>Naběračka padla na…</h5></div>
+            <div class="mini" style="text-align:center;padding:20px 14px;border-color:var(--zhar);background:radial-gradient(80% 60% at 50% 0%, rgba(255,90,31,.25), transparent), var(--uhlik-2)">
+              <div class="ava a7 ring" style="--s:64px;margin:0 auto 10px">Z</div>
+              <b style="font:800 24px var(--f-display)">Zůza</b>
+              <div class="mute" style="font-size:12px;margin-top:2px">5 týdnů bez rituálu · nejvyšší šance</div>
+            </div>
+            <div class="row" style="gap:8px">
+              <button class="btn btn-fire btn-sm" style="flex:1">Beru 🪣</button>
+              <button class="btn btn-ghost btn-sm" style="flex:1">Předat dál</button>
+            </div>
+            <div>
+              <div class="sub" style="margin-bottom:8px">Co to bude?</div>
+              <div class="row" style="flex-wrap:wrap;gap:6px">
+                <span class="ritual-chip on">🌿 Eukalyptus</span><span class="ritual-chip">🍋 Citrus & med</span><span class="ritual-chip">🧂 Solný peeling</span><span class="ritual-chip">🧊 Ledová koule</span><span class="ritual-chip">🌳 Březová metla</span><span class="ritual-chip">🎲 Překvapení</span>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar"><div><i>🧖</i>Dnes</div><div><i>🏆</i>Žebříček</div><div class="on"><i>🌿</i>Rituály</div><div><i>💸</i>Kasa</div><div><i>🗳</i>Sezóna</div></div>
+        </div></div>
+        <h4>Rituály</h4><p>Férový los vážený časem od posledního rituálu. Přijmeš, nebo předáš dalšímu ve frontě. Typ rituálu vybereš z knihovny.</p>
+      </div>
+
+      <!-- KASA -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="status"><span>9:14</span><span>●●● 🔋</span></div>
+          <div class="sc">
+            <div><div class="sub">Tvoje kasa · podzim 2026</div><h5>Visíš 320 Kč</h5></div>
+            <div class="mini">
+              <div class="weeks" aria-label="Účast po týdnech">
+                <span class="y"></span><span class="y"></span><span></span><span class="y"></span><span class="y"></span><span class="r"></span><span class="r"></span><span></span><span></span><span></span>
+              </div>
+              <div class="row between" style="margin-top:10px;font-size:12px"><span class="mute">6 účastí × 160 Kč</span><span class="mono">960 Kč</span></div>
+              <div class="row between" style="font-size:12px"><span class="mute">Zaplaceno</span><span class="mono">640 Kč</span></div>
+            </div>
+            <button class="btn btn-fire" style="width:100%">Zaplatit QR kódem</button>
+            <div class="mini" style="padding:8px 14px">
+              <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--uhlik-3)"><span>13. 10.</span><span class="tag tag-due">160 Kč</span></div>
+              <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--uhlik-3)"><span>6. 10.</span><span class="tag tag-due">160 Kč</span></div>
+              <div class="row between" style="padding:6px 0"><span>29. 9.</span><span class="tag tag-paid">Zaplaceno</span></div>
+            </div>
+            <div class="mini row between" style="padding:10px 14px">
+              <span style="font-size:12px" class="muted">Přebytek → fond na cenu</span><span class="mono" style="color:var(--plamen);font-weight:700">+130 Kč</span>
+            </div>
+          </div>
+          <div class="tabbar"><div><i>🧖</i>Dnes</div><div><i>🏆</i>Žebříček</div><div><i>🌿</i>Rituály</div><div class="on"><i>💸</i>Kasa</div><div><i>🗳</i>Sezóna</div></div>
+        </div></div>
+        <h4>Kasa</h4><p>Konec počítání v excelu. Každý vidí svůj dluh, platí QR kódem a přebytek z pronájmu plní fond na cenu.</p>
+      </div>
+
+      <!-- SEZÓNA -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen"><div class="notch"></div>
+          <div class="status"><span>22:41</span><span>●●● 🔋</span></div>
+          <div class="sc">
+            <div><div class="sub">Konec sezóny za 7 úterků</div><h5>O co se hraje?</h5></div>
+            <div class="mini">
+              <div class="row between"><span class="sub">Fond na cenu</span><span class="mono" style="color:var(--plamen);font-weight:700">1 240 Kč</span></div>
+              <div class="pbar" style="margin-top:8px"><div style="width:50%"></div></div>
+            </div>
+            <div class="vote lead"><div class="fill" style="width:44%"></div><div class="in"><span>💆 Masáž na účet ostatních</span><b class="mono">4</b></div></div>
+            <div class="vote"><div class="fill" style="width:33%"></div><div class="in"><span>🧢 Saunová čepice s výšivkou</span><b class="mono">3</b></div></div>
+            <div class="vote"><div class="fill" style="width:22%"></div><div class="in"><span>👑 Titul Saunokrál/ovna + korunka</span><b class="mono">2</b></div></div>
+            <div class="vote"><div class="fill" style="width:0%"></div><div class="in"><span>🍝 Večeře, kterou platí poslední</span><b class="mono">0</b></div></div>
+            <button class="btn btn-ghost btn-sm" style="width:100%">+ Navrhnout cenu</button>
+            <div class="mini row" style="padding:10px 14px;gap:10px">
+              <span style="font-size:22px">🏆</span><div style="font-size:12px"><b>Jaro 2026</b><div class="mute">Terka · 13 účastí z 14</div></div>
+            </div>
+          </div>
+          <div class="tabbar"><div><i>🧖</i>Dnes</div><div><i>🏆</i>Žebříček</div><div><i>🌿</i>Rituály</div><div><i>💸</i>Kasa</div><div class="on"><i>🗳</i>Sezóna</div></div>
+        </div></div>
+        <h4>Sezóna</h4><p>Hlasování o cenu, stav fondu a síň slávy minulých sezón (data z excelu od podzimu 2023 se dají importovat).</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ 09 POHYB ============ -->
+<section class="s" id="pohyb">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">09 — POHYB</span>
+      <h2>Všechno stoupá.</h2>
+      <p>Animace se chovají jako horký vzduch: pomalu, vzhůru, s doběhem. Easing <span class="mono">cubic-bezier(.2,.8,.2,1)</span>, 200–600 ms. Respektujeme „omezit pohyb“.</p>
+    </div>
+    <div class="grid g3">
+      <div><div class="motion-demo"><span class="steam" style="left:42%"></span><span class="steam" style="left:50%;animation-delay:.8s"></span><span class="steam" style="left:58%;animation-delay:1.6s"></span><span style="font-size:40px;position:relative">🧖</span></div><p class="muted" style="font-size:14px;margin:10px 0 0"><b style="color:var(--para)">Check-in</b> – z tlačítka stoupne pára</p></div>
+      <div><div class="motion-demo"><div class="pulse"></div></div><p class="muted" style="font-size:14px;margin:10px 0 0"><b style="color:var(--para)">Živá sauna</b> – pulz, když je úterý 21–23 h</p></div>
+      <div><div class="motion-demo"><span class="shimmer">+25 💧</span></div><p class="muted" style="font-size:14px;margin:10px 0 0"><b style="color:var(--para)">Body</b> – žárový třpyt na číslech</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 DALŠÍ KROKY ============ -->
+<section class="s" id="dalsi">
+  <div class="wrap">
+    <div class="s-head">
+      <span class="s-num">10 — CO DÁL</span>
+      <h2>Z excelu do páry.</h2>
+    </div>
+    <ol class="steps">
+      <li><div><b>Odsouhlasit design v partě</b><p>Název PÁRA, barvy, pravidla bodování. Hlasujte v chatu, ať to má tah.</p></div></li>
+      <li><div><b>MVP: Dnes + Kasa</b><p>Check-in a dluhy. Login přes magic link, data v jednoduché DB (Supabase / Firebase). Import historie z Google Sheets.</p></div></li>
+      <li><div><b>Hra: kapky, série, žebříček</b><p>Výpočet bodů na serveru, ať se nedá podvádět. Push notifikace v pondělí a v úterý ve 20:00.</p></div></li>
+      <li><div><b>Rituály a hlasování</b><p>Los saunamistra, knihovna rituálů, hlasování o cenu sezóny.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<footer class="end">
+  <div class="wrap">
+    <svg width="48" height="48" viewBox="0 0 64 64" aria-hidden="true"><use href="#mark"/></svg>
+    <div class="wm">PÁRA</div>
+    <p>Saunový klub Lužánky · každé úterý 21:00 · od podzimu 2023</p>
+  </div>
+</footer>
+
+<script>
+  // jiskry v hero
+  const box = document.getElementById('embers');
+  if (box && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (let i = 0; i < 26; i++) {
+      const s = document.createElement('span');
+      s.style.left = Math.random() * 100 + '%';
+      s.style.setProperty('--dx', (Math.random() * 80 - 40) + 'px');
+      s.style.animationDuration = 5 + Math.random() * 7 + 's';
+      s.style.animationDelay = -Math.random() * 10 + 's';
+      const z = 2 + Math.random() * 3;
+      s.style.width = s.style.height = z + 'px';
+      box.appendChild(s);
+    }
+  }
+</script>
+</body>
+</html>
