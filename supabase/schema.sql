@@ -1,4 +1,4 @@
--- ŽÁR · Saunový klub Lužánky
+-- PÁRA · Saunový klub Lužánky
 -- Spusť celé v Supabase → SQL Editor → New query → Run.
 -- Skript je určený pro prázdný projekt (spouští se jednou).
 
