@@ -1,7 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js?v=20261020h';
+import { api, configured } from './api.js?v=20261020i';
 
-const VERSION = '20261020h';
+const VERSION = '20261020i';
 
 // ---------- pomocníci ----------
 
@@ -330,7 +330,7 @@ function Today({ ctx }) {
             ${inviting && !closedNext && html`
               <form class="form" style="margin-top:10px" onSubmit=${(e) => { e.preventDefault(); if (!guestName.trim()) return; act(() => api.requestGuest(next, guestName), 'Žádost odeslaná. Teď to musí odsouhlasit ostatní.').then((ok) => { if (ok) { setGuestName(''); setInviting(false); } }); }}>
                 <label>Jméno hosta <input value=${guestName} placeholder="Pepa" autofocus onInput=${(e) => setGuestName(e.target.value)} /></label>
-                <p class="muted small" style="margin:0">Host platí za tebe stejnou částku jako ty. Zapíše se, až s ním souhlasí všichni, kdo jdou (${adminName} může rozhodnout výjimečně).</p>
+                <p class="muted small" style="margin:0">Host platí za tebe stejnou částku jako ty. Zapíše se, až s ním souhlasí všichni, kdo jdou.</p>
                 <div class="row"><button class="btn btn-fire btn-sm">Poslat žádost</button><button type="button" class="btn btn-ghost btn-sm" onClick=${() => setInviting(false)}>Zrušit</button></div>
               </form>`}
             ${guestReqs.map((r) => {
