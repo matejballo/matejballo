@@ -61,6 +61,22 @@ function spayd(settings, amount, message) {
   return parts.join('*');
 }
 
+// Pára stoupá z tlačítka po zápisu do sauny
+function steam(el) {
+  if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < 7; i++) {
+    const p = document.createElement('span');
+    p.className = 'puff';
+    p.style.left = `${r.left + r.width * (0.15 + Math.random() * 0.7)}px`;
+    p.style.top = `${r.top + 8}px`;
+    p.style.setProperty('--dx', `${Math.round(Math.random() * 40 - 20)}px`);
+    p.style.animationDelay = `${i * 70}ms`;
+    p.addEventListener('animationend', () => p.remove());
+    document.body.appendChild(p);
+  }
+}
+
 // ---------- hra ----------
 
 const RITUALS = [
@@ -241,13 +257,15 @@ function Today({ ctx }) {
   const nextSess = data?.sessions.find((s) => s.date === next);
   const ritual = nextSess && data.rituals.find((r) => r.session_id === nextSess.id);
   const host = ritual?.host_id && members.find((m) => m.id === ritual.host_id);
+  const hour = new Date().getHours();
+  const live = next === iso(today()) && hour >= 21 && hour < 23 && nextGoing.length > 0;
 
   return html`
     <section class="page">
       <div><div class="sub">${long(next)} · Lužánky</div><h1>${iGo ? 'Vidíme se v páře 🔥' : 'Jdeš se potit?'}</h1></div>
       ${!nextSeason ? html`<div class="card muted">Na tohle úterý není otevřená sezóna. ${me.is_admin ? 'Založ ji v Adminu.' : 'Matěj ji brzo založí.'}</div>` : html`
-        <div class="heat">
-          <div class="row between"><span class="mono-s">${untilLabel(next).toUpperCase()}</span><span class="mono-s">90 °C</span></div>
+        <div class=${`heat ${live ? 'live' : ''}`}>
+          <div class="row between"><span class="mono-s">${live ? '● ŽIVĚ' : untilLabel(next).toUpperCase()}</span><span class="mono-s">90 °C</span></div>
           <div class="big">${!nextGoing.length ? 'Zatím nikdo' : `${nextGoing.length} ${nextGoing.length === 1 ? 'člověk' : nextGoing.length <= 4 ? 'lidi' : 'lidí'}`}</div>
           <div class="row between">
             <div class="stack">${nextGoing.map((m) => html`<${Ava} m=${m} members=${members} size=${32} />`)}</div>
@@ -256,7 +274,7 @@ function Today({ ctx }) {
         </div>
         ${iGo
           ? html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggle(next, me.id), 'Škoda. Příště.')}>Nakonec nejdu</button>`
-          : html`<button class="btn btn-fire" onClick=${() => act(() => api.toggle(next, me.id), 'Zapsáno. Ručník s sebou. 🧖')}>Jdu se potit 🔥</button>`}
+          : html`<button class="btn btn-fire" onClick=${(e) => { steam(e.currentTarget); act(() => api.toggle(next, me.id), next === iso(today()) ? 'Zapsáno. +10 💧 a ručník s sebou 🧖' : 'Zapsáno. Ručník s sebou. 🧖'); }}>Jdu se potit 🔥</button>`}
         ${nextGoing.length > 0 && html`
           <button class="card row between link-card" onClick=${() => go('ritualy')}>
             <div><div class="sub">Rituál · ${short(next)}</div>
@@ -269,7 +287,7 @@ function Today({ ctx }) {
         <button class="card link-card me-score" onClick=${() => go('sezona')}>
           <div class="row between">
             <div><div class="sub">${season.name} · ${score.rank}. místo</div><b>${lvl[1]}° ${lvl[2]} ${lvl[3]}</b></div>
-            <span class="mono big-num fire-txt">💧 ${score.kapky}</span>
+            <span class="mono big-num shimmer">💧 ${score.kapky}</span>
           </div>
           <div class="row" style="gap:8px;margin-top:10px">
             <span class="streak">🔥 ${score.streak} ${score.streak === 1 ? 'týden' : score.streak >= 2 && score.streak <= 4 ? 'týdny' : 'týdnů'}</span>
@@ -343,7 +361,7 @@ function Season({ ctx }) {
               <${Ava} m=${r.member} members=${members} size=${36} ring=${r.streak >= 3} />
               <div class="grow"><b>${r.member.name}${r.rank === 1 && r.visits ? ' 👑' : ''}</b>
                 <small>${l[1]}° ${l[2]}${r.streak >= 2 ? ` · 🔥 ${r.streak}` : ''}${r.hosted ? ` · 🪣 ${r.hosted}` : ''}${r.full ? ' · 🏅 celá sezóna' : ''}</small></div>
-              <span class="pts">💧 ${r.kapky}</span>
+              <span class=${`pts ${r.rank === 1 && r.visits ? 'shimmer' : ''}`}>💧 ${r.kapky}</span>
             </div>`;
         })}
       </div>

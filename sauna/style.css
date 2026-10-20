@@ -242,3 +242,30 @@ a { color: inherit; }
 .vote-chip.chosen { background: var(--ohen); color: var(--uhlik); border-color: transparent; }
 .vote-chip.chosen b { color: var(--uhlik); }
 .fire-card .fire-txt { font-size: 18px; }
+
+/* ---------- pohyb: všechno stoupá ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+.page > * { animation: rise .5s cubic-bezier(.2,.8,.2,1) backwards; }
+.page > :nth-child(2) { animation-delay: .05s; }
+.page > :nth-child(3) { animation-delay: .1s; }
+.page > :nth-child(4) { animation-delay: .15s; }
+.page > :nth-child(5) { animation-delay: .2s; }
+.page > :nth-child(n+6) { animation-delay: .25s; }
+
+/* pára z tlačítka po zápisu */
+.puff { position: fixed; z-index: 40; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: rgba(255,243,230,.55); filter: blur(8px); pointer-events: none; opacity: 0; animation: puff 1.6s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes puff { 0% { transform: translate(0, 0) scale(.6); opacity: 0; } 25% { opacity: .85; } 100% { transform: translate(var(--dx, 0), -130px) scale(2.6); opacity: 0; } }
+
+/* karta s odpočtem dýchá, v úterý 21–23 h pulzuje */
+.heat::after { animation: breathe 5s ease-in-out infinite alternate; }
+@keyframes breathe { from { transform: scale(1); opacity: .8; } to { transform: scale(1.25); opacity: 1; } }
+.heat.live { animation: live 1.8s ease-in-out infinite; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 rgba(255,90,31,.6); } 70% { box-shadow: 0 0 0 22px rgba(255,90,31,0); } 100% { box-shadow: 0 0 0 0 rgba(255,90,31,0); } }
+
+/* žárový třpyt na kapkách */
+.shimmer { background: linear-gradient(90deg, var(--kuze), var(--plamen), var(--zhar), var(--plamen), var(--kuze)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 3s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* odznak série mírně žhne */
+.streak { animation: glow 2.4s ease-in-out infinite alternate; }
+@keyframes glow { from { box-shadow: 0 0 0 0 rgba(255,182,39,0); } to { box-shadow: 0 0 14px 0 rgba(255,182,39,.35); } }
