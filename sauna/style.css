@@ -282,3 +282,4 @@ a { color: inherit; }
 .badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 99px; background: var(--zhar); color: var(--uhlik); font: 700 11px var(--f-mono); }
 .tabbar a { position: relative; }
 .tabbar .badge { position: absolute; top: 0; left: calc(50% + 6px); margin: 0; }
+.btn-ghost.on { border-color: var(--zhar); background: rgba(255,90,31,.12); }

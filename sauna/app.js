@@ -1,7 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js?v=20261020e';
+import { api, configured } from './api.js?v=20261020f';
 
-const VERSION = '20261020e';
+const VERSION = '20261020f';
 
 // ---------- pomocníci ----------
 
@@ -299,10 +299,10 @@ function Today({ ctx }) {
         </div>
         ${closedNext ? html`<div class="card muted small">🔒 Zápis skončil v ${signupTime(settings)}. ${iGo ? 'Jsi zapsaný, změnit to může už jen ' : iOut ? 'Máš zapsáno, že nemůžeš. Změnit to může už jen ' : 'Dopsat tě může už jen '}${adminName}.</div>`
         : iGo
-          ? html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Škoda, dáme vědět dál.')}>Nakonec nemůžu</button>`
+          ? html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Škoda, dáme vědět dál.')}>Nakonec nemůžu 😰</button>`
           : html`
             <div class="btn-row">
-              ${!iOut && html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Dobře, dáme vědět dál.')}>Dnes nemůžu</button>`}
+              <button class=${`btn btn-ghost ${iOut ? 'on' : ''}`} aria-pressed=${iOut} onClick=${() => act(() => api.toggleAbsence(next, me.id), iOut ? 'Dobře, zase s tebou počítáme.' : 'Dobře, dáme vědět dál.')}>Dnes nemůžu 😰</button>
               <button class="btn btn-fire" disabled=${full} onClick=${(e) => { steam(e.currentTarget); act(() => api.toggle(next, me.id), next === iso(today()) ? 'Zapsáno. +10 💧 a ručník s sebou 🧖' : 'Zapsáno. Ručník s sebou. 🧖'); }}>${full ? `Plno (${cap}/${cap})` : iOut ? 'Jdu přece 🔥' : 'Jdu se potit 🔥'}</button>
             </div>`}
         ${!closedNext && html`<p class="muted small" style="margin:-6px 0 0">Zápis a odepsání do ${signupTime(settings)} v den sauny.</p>`}
