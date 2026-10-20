@@ -61,6 +61,83 @@ function spayd(settings, amount, message) {
   return parts.join('*');
 }
 
+// ---------- hra ----------
+
+const RITUALS = [
+  ['eukalyptus', '🌿', 'Eukalyptus'], ['citrus', '🍋', 'Citrus & med'], ['sul', '🧂', 'Solný peeling'],
+  ['led', '🧊', 'Ledová koule'], ['metla', '🌳', 'Březová metla'], ['med', '🍯', 'Medová maska'],
+  ['pivo', '🍺', 'Pivní aufguss'], ['prekvapeni', '🎲', 'Překvapení'],
+];
+const ritualLabel = (k) => { const r = RITUALS.find((x) => x[0] === k); return r ? `${r[1]} ${r[2]}` : k; };
+
+// [od kapek, °C, název, emoji]
+const LEVELS = [[0, 40, 'Vlažňák', '🫧'], [50, 60, 'Zahřátý', '🌤'], [120, 80, 'Rozpálený', '☀️'], [200, 90, 'Žhavý', '🔥'], [300, 100, 'Vroucí', '♨️'], [420, 110, 'Lávový', '🌋']];
+const levelOf = (k) => LEVELS.filter((l) => k >= l[0]).pop();
+const nextLevelOf = (k) => LEVELS.find((l) => l[0] > k);
+
+const POINTS = { visit: 10, streakStep: 2, streakMax: 20, host: 15, fire: 1, guest: 5, fullSeason: 50 };
+const PRIZES = ['🧢 Saunová čepice', '🌿 Březová metlička', '🍺 Pivo'];
+
+// Kapky, série a pořadí v sezóně. Počítají se jen úterky, které už proběhly.
+function game(season, data, members) {
+  const now = iso(today());
+  const held = data.sessions.filter((s) => s.date <= now && data.attendance.some((a) => a.session_id === s.id));
+  const heldIds = new Set(held.map((s) => s.id));
+  const att = new Set(data.attendance.map((a) => `${a.session_id}|${a.member_id}`));
+  const hostOf = new Map(data.rituals.filter((r) => r.host_id).map((r) => [r.session_id, r.host_id]));
+
+  const rows = members.filter((m) => !m.is_guest && m.active).map((m) => {
+    const p = { member: m, kapky: 0, visits: 0, streak: 0, best: 0, hosted: 0, fires: 0, guests: 0, full: false };
+    let run = 0;
+    for (const s of held) {
+      if (att.has(`${s.id}|${m.id}`)) {
+        run++;
+        p.visits++;
+        p.kapky += POINTS.visit + Math.min(POINTS.streakStep * (run - 1), POINTS.streakMax);
+        p.best = Math.max(p.best, run);
+      } else run = 0;
+      if (hostOf.get(s.id) === m.id) { p.hosted++; p.kapky += POINTS.host; }
+    }
+    p.streak = run;
+    p.fires = data.fires.filter((f) => heldIds.has(f.session_id) && hostOf.get(f.session_id) === m.id).length;
+    p.guests = data.attendance.filter((a) => heldIds.has(a.session_id) && a.charged_to === m.id && a.member_id !== m.id).length;
+    p.kapky += p.fires * POINTS.fire + p.guests * POINTS.guest;
+    if (season.closed_at && held.length && p.visits === held.length) { p.full = true; p.kapky += POINTS.fullSeason; }
+    return p;
+  });
+
+  rows.sort((a, b) => b.kapky - a.kapky || b.visits - a.visits || a.member.sort - b.member.sort);
+  rows.forEach((r, i) => {
+    const prev = rows[i - 1];
+    r.rank = prev && prev.kapky === r.kapky && prev.visits === r.visits ? prev.rank : i + 1;
+  });
+  return rows;
+}
+
+// Šance na naběračku – stejná váha jako losování v databázi (pick_host)
+function hostChances(session, data, members) {
+  const ritual = data.rituals.find((r) => r.session_id === session.id);
+  const passed = new Set(ritual?.passed || []);
+  const earlier = data.sessions.filter((x) => x.date < session.date);
+  const list = data.attendance
+    .filter((a) => a.session_id === session.id)
+    .map((a) => members.find((m) => m.id === a.member_id))
+    .filter((m) => m && !m.is_guest && !passed.has(m.id))
+    .map((m) => {
+      const last = earlier.filter((x) => data.rituals.some((r) => r.session_id === x.id && r.host_id === m.id)).map((x) => x.date).sort().pop() || '';
+      const since = earlier.filter((x) => x.date > last && data.attendance.some((a) => a.session_id === x.id && a.member_id === m.id)).length;
+      return { member: m, w: 1 + since, never: !last };
+    });
+  const total = list.reduce((t, x) => t + x.w, 0);
+  return list.map((x) => ({ ...x, pct: Math.round((100 * x.w) / total) })).sort((a, b) => b.w - a.w);
+}
+
+function tuesdaysLeft(season) {
+  let n = 0;
+  for (let d = nextTuesday(); iso(d) <= season.ends_on; d = addDays(d, 7)) n++;
+  return n;
+}
+
 // ---------- drobné komponenty ----------
 
 const Ava = ({ m, members, size = 40, ring, off }) => html`
@@ -159,6 +236,11 @@ function Today({ ctx }) {
   const iGo = nextGoing.some((m) => m.id === me.id);
   const iWent = prevGoing.some((m) => m.id === me.id);
   const mine = season && data ? ledger(season, data, members).get(me.id) : null;
+  const score = season && data ? game(season, data, members).find((r) => r.member.id === me.id) : null;
+  const lvl = score && levelOf(score.kapky);
+  const nextSess = data?.sessions.find((s) => s.date === next);
+  const ritual = nextSess && data.rituals.find((r) => r.session_id === nextSess.id);
+  const host = ritual?.host_id && members.find((m) => m.id === ritual.host_id);
 
   return html`
     <section class="page">
@@ -175,7 +257,26 @@ function Today({ ctx }) {
         ${iGo
           ? html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggle(next, me.id), 'Škoda. Příště.')}>Nakonec nejdu</button>`
           : html`<button class="btn btn-fire" onClick=${() => act(() => api.toggle(next, me.id), 'Zapsáno. Ručník s sebou. 🧖')}>Jdu se potit 🔥</button>`}
+        ${nextGoing.length > 0 && html`
+          <button class="card row between link-card" onClick=${() => go('ritualy')}>
+            <div><div class="sub">Rituál · ${short(next)}</div>
+              <b>${host ? `${host.id === me.id ? 'Naběračka je tvoje 🪣' : `Vede ${host.name}`}` : 'Saunamistr zatím nevylosovaný'}</b>
+              ${ritual?.kind && html`<div class="muted small">${ritualLabel(ritual.kind)}</div>`}</div>
+            ${host ? html`<${Ava} m=${host} members=${members} size=${38} ring />` : html`<span class="big-num">🎲</span>`}
+          </button>`}
       `}
+      ${score && html`
+        <button class="card link-card me-score" onClick=${() => go('sezona')}>
+          <div class="row between">
+            <div><div class="sub">${season.name} · ${score.rank}. místo</div><b>${lvl[1]}° ${lvl[2]} ${lvl[3]}</b></div>
+            <span class="mono big-num fire-txt">💧 ${score.kapky}</span>
+          </div>
+          <div class="row" style="gap:8px;margin-top:10px">
+            <span class="streak">🔥 ${score.streak} ${score.streak === 1 ? 'týden' : score.streak >= 2 && score.streak <= 4 ? 'týdny' : 'týdnů'}</span>
+            ${score.hosted > 0 && html`<span class="drops">🪣 ${score.hosted}×</span>`}
+            ${nextLevelOf(score.kapky) && html`<span class="muted small">do ${nextLevelOf(score.kapky)[1]}° chybí ${nextLevelOf(score.kapky)[0] - score.kapky} 💧</span>`}
+          </div>
+        </button>`}
       ${prevSeason && html`
         <div class="card row between">
           <div><div class="sub">Minulé úterý · ${short(prev)}</div><b>${iWent ? 'Účast zapsaná ✓' : 'Nezapsáno'}</b></div>
@@ -183,7 +284,7 @@ function Today({ ctx }) {
         </div>`}
       ${mine && html`
         <button class="card row between link-card" onClick=${() => go('kasa')}>
-          <div><div class="sub">${season.name} · kasa</div><b>${mine.visits}× v sauně</b></div>
+          <div><div class="sub">${season.name} · kasa</div><b>${mine.left > 0 ? 'Zatím visíš kase' : 'Kasa'}</b></div>
           <span class="mono big-num ${mine.left > 0 ? 'due' : ''}">${mine.left > 0 ? kc(mine.left) : '✓'}</span>
         </button>`}
     </section>`;
@@ -209,15 +310,10 @@ function Season({ ctx }) {
   const limit = iso(addDays(today(), 7));
   const canEdit = (m, date) => me.is_admin || (m.id === me.id && !season.closed_at && date <= limit);
 
-  // žebříček s remízami jako v excelu
-  const ranks = [];
-  for (const m of members.filter((x) => !x.is_guest)) {
-    const v = lg.get(m.id)?.visits || 0;
-    if (!v) continue;
-    const r = ranks.find((x) => x.visits === v);
-    r ? r.people.push(m) : ranks.push({ visits: v, people: [m] });
-  }
-  ranks.sort((a, b) => b.visits - a.visits);
+  const board = game(season, data, members);
+  const prizes = season.prizes?.length ? season.prizes : PRIZES;
+  const holders = (place) => board.filter((r) => r.visits > 0 && r.rank === place);
+  const left = season.closed_at ? 0 : tuesdaysLeft(season);
 
   const collected = data.attendance.length * season.price_per_person;
   const rental = data.sessions.filter((s) => data.attendance.some((a) => a.session_id === s.id)).length * season.rental_price;
@@ -225,17 +321,47 @@ function Season({ ctx }) {
   return html`
     <section class="page wide">
       <${SeasonPicker} ctx=${ctx} />
-      <h1>${season.name}</h1>
-      ${ranks.length > 0 && html`
-        <div class="card podium-list">
-          ${ranks.slice(0, 3).map((r, i) => html`
-            <div class="rank-row">
-              <span class="rank">${['🥇', '🥈', '🥉'][i]}</span>
-              <div class="stack">${r.people.map((m) => html`<${Ava} m=${m} members=${members} size=${32} ring=${i === 0} />`)}</div>
-              <b class="grow">${r.people.map((m) => m.name).join(', ')}</b>
-              <span class="mono">${r.visits}×</span>
-            </div>`)}
-        </div>`}
+      <div><div class="sub">${season.closed_at ? 'Konečné pořadí' : left ? `Do konce ${left} ${left === 1 ? 'úterý' : left <= 4 ? 'úterky' : 'úterků'}` : 'Poslední úterek'}</div>
+        <h1>Žebříček · ${season.name}</h1></div>
+
+      <div class="prizes">
+        ${prizes.slice(0, 3).map((p, i) => html`
+          <div class=${`prize p${i + 1}`}>
+            <span class="medal">${['🥇', '🥈', '🥉'][i]}</span>
+            <div class="grow"><b>${p}</b>
+              <div class="small">${holders(i + 1).map((r) => r.member.name).join(', ') || '—'}</div></div>
+          </div>`)}
+      </div>
+      <p class="muted small" style="margin:-4px 0 0">Ceny platí ostatní. ${season.closed_at ? '' : 'Ještě je čas to otočit. 😈'}</p>
+
+      <div class="card lb">
+        ${board.map((r) => {
+          const l = levelOf(r.kapky);
+          return html`
+            <div class=${`lb-row ${r.member.id === me.id ? 'me' : ''} ${r.visits ? '' : 'zero'}`}>
+              <span class="pos">${r.visits ? `${r.rank}.` : '–'}</span>
+              <${Ava} m=${r.member} members=${members} size=${36} ring=${r.streak >= 3} />
+              <div class="grow"><b>${r.member.name}${r.rank === 1 && r.visits ? ' 👑' : ''}</b>
+                <small>${l[1]}° ${l[2]}${r.streak >= 2 ? ` · 🔥 ${r.streak}` : ''}${r.hosted ? ` · 🪣 ${r.hosted}` : ''}${r.full ? ' · 🏅 celá sezóna' : ''}</small></div>
+              <span class="pts">💧 ${r.kapky}</span>
+            </div>`;
+        })}
+      </div>
+
+      <details class="card rules">
+        <summary>Jak se sbírají kapky 💧</summary>
+        <table>
+          <tr><td>Účast v sauně</td><td>+${POINTS.visit}</td></tr>
+          <tr><td>Série (každý další úterek v řadě)</td><td>+${POINTS.streakStep}× série, max +${POINTS.streakMax}</td></tr>
+          <tr><td>Vedení rituálu</td><td>+${POINTS.host}</td></tr>
+          <tr><td>Každý 🔥 za tvůj rituál</td><td>+${POINTS.fire}</td></tr>
+          <tr><td>Přivedený host</td><td>+${POINTS.guest}</td></tr>
+          <tr><td>Celá sezóna bez absence</td><td>+${POINTS.fullSeason}</td></tr>
+        </table>
+        <p class="muted small">Teploměr: ${LEVELS.map((l) => `${l[1]}° ${l[2]} (${l[0]}+)`).join(' · ')}</p>
+      </details>
+
+      <h2 class="h2">Docházka</h2>
       <div class="grid-wrap">
         <table class="grid">
           <thead><tr><th></th>${data.sessions.map((s) => html`<th>${short(s.date)}</th>`)}<th>Σ</th></tr></thead>
@@ -259,8 +385,124 @@ function Season({ ctx }) {
       <div class="stats">
         <div class="card"><div class="sub">Vybráno</div><b class="mono">${kc(collected)}</b></div>
         <div class="card"><div class="sub">Pronájem</div><b class="mono">${kc(rental)}</b></div>
-        <div class="card"><div class="sub">Fond na cenu</div><b class="mono fire-txt">${kc(collected - rental)}</b></div>
+        <div class="card"><div class="sub">${collected >= rental ? 'Přebytek' : 'Chybí na pronájem'}</div><b class=${`mono ${collected >= rental ? 'fire-txt' : 'due'}`}>${kc(Math.abs(collected - rental))}</b></div>
       </div>
+    </section>`;
+}
+
+// ---------- Rituály ----------
+
+function Rituals({ ctx }) {
+  const { me, members, season, data, act } = ctx;
+  if (!season || !data) return html`<section class="page"><${SeasonPicker} ctx=${ctx} /><p class="muted">Načítám…</p></section>`;
+
+  const next = iso(nextTuesday());
+  const open = inSeason(season, next) && !season.closed_at;
+  const sess = data.sessions.find((s) => s.date === next);
+  const goingIds = sess ? data.attendance.filter((a) => a.session_id === sess.id).map((a) => a.member_id) : [];
+  const iGo = goingIds.includes(me.id);
+  const ritual = sess && data.rituals.find((r) => r.session_id === sess.id);
+  const host = ritual?.host_id && members.find((m) => m.id === ritual.host_id);
+  const passed = (ritual?.passed || []).map((id) => members.find((m) => m.id === id)?.name).filter(Boolean);
+  const votes = sess ? data.votes.filter((v) => v.session_id === sess.id) : [];
+  const myVote = votes.find((v) => v.member_id === me.id)?.kind;
+  const tally = RITUALS.map(([k, i, l]) => ({ k, i, l, n: votes.filter((v) => v.kind === k).length }));
+  const maxVotes = Math.max(0, ...tally.map((t) => t.n));
+  const chances = sess && !host ? hostChances(sess, data, members) : [];
+  const fireCount = (sid) => data.fires.filter((f) => f.session_id === sid).length;
+
+  // proběhlé rituály (před nadcházejícím úterkem), nejnovější nahoře
+  const past = data.sessions
+    .filter((s) => s.date < next)
+    .map((s) => ({ s, r: data.rituals.find((r) => r.session_id === s.id && r.host_id) }))
+    .filter((x) => x.r)
+    .reverse();
+  const last = past[0];
+  const lastHost = last && members.find((m) => m.id === last.r.host_id);
+  const iWasThere = last && data.attendance.some((a) => a.session_id === last.s.id && a.member_id === me.id);
+  const iFired = last && data.fires.some((f) => f.session_id === last.s.id && f.member_id === me.id);
+
+  return html`
+    <section class="page">
+      <${SeasonPicker} ctx=${ctx} />
+      <div><div class="sub">Rituál · ${long(next)}</div>
+        <h1>${host ? (host.id === me.id ? 'Naběračka je tvoje 🪣' : `Naběračka: ${host.name}`) : 'Kdo povede rituál?'}</h1></div>
+
+      ${!open && html`<div class="card muted">Na příští úterý není otevřená sezóna.</div>`}
+
+      ${open && !goingIds.length && html`<div class="card muted">Zatím se nikdo nezapsal. Saunamistr se losuje mezi těmi, kdo jdou.</div>`}
+
+      ${open && host && html`
+        <div class="card host-card">
+          <${Ava} m=${host} members=${members} size=${72} ring />
+          <b class="host-name">${host.name}</b>
+          <div class="muted">${ritual.kind ? ritualLabel(ritual.kind) : maxVotes ? `Parta chce: ${tally.filter((t) => t.n === maxVotes).map((t) => `${t.i} ${t.l}`).join(', ')}` : 'Typ rituálu zatím nevybraný'}</div>
+          ${passed.length > 0 && html`<div class="muted small">Předali: ${passed.join(', ')}</div>`}
+          ${host.id === me.id && html`
+            <div class="row wrap" style="justify-content:center">
+              <button class="btn btn-ghost btn-sm" onClick=${() => confirm('Předat naběračku dál? Los proběhne znovu bez tebe.') && act(() => api.passRitual(next), 'Naběračka putuje dál 🪣')}>Předat dál</button>
+            </div>`}
+        </div>`}
+
+      ${open && !host && goingIds.length > 0 && html`
+        <div class="card">
+          <div class="sub">Šance na naběračku</div>
+          ${chances.map((c) => html`
+            <div class="chance">
+              <${Ava} m=${c.member} members=${members} size=${30} />
+              <span class="grow">${c.member.name}${c.never ? html` <span class="muted small">· poprvé</span>` : ''}</span>
+              <div class="pbar"><div style=${`width:${c.pct}%`}></div></div>
+              <span class="mono small">${c.pct} %</span>
+            </div>`)}
+          ${passed.length > 0 && html`<p class="muted small">Předali: ${passed.join(', ')}</p>`}
+          ${chances.length === 0 && html`<p class="muted small">Všichni předali. Naběračka zůstává volná.</p>`}
+          ${(iGo || me.is_admin) && chances.length > 0
+            ? html`<button class="btn btn-fire" style="width:100%;margin-top:12px" onClick=${() => act(() => api.drawRitual(next), 'Los padl! 🎲')}>🎲 Losovat saunamistra</button>`
+            : chances.length > 0 && html`<p class="muted small">Losovat může kdokoliv, kdo jde.</p>`}
+        </div>`}
+
+      ${open && goingIds.length > 0 && html`
+        <div class="card">
+          <div class="row between"><div class="sub">${host?.id === me.id ? 'Vyber rituál' : 'Na co je chuť?'}</div>
+            ${!iGo && html`<span class="muted small">hlasují ti, kdo jdou</span>`}</div>
+          <div class="vote-grid">
+            ${tally.map((t) => {
+              const chosen = ritual?.kind === t.k;
+              const onClick = host?.id === me.id
+                ? () => act(() => api.setRitualKind(next, chosen ? '' : t.k), chosen ? null : `Rituál: ${t.i} ${t.l}`)
+                : () => act(() => api.voteRitual(next, t.k));
+              return html`
+                <button class=${`vote-chip ${myVote === t.k ? 'mine' : ''} ${chosen ? 'chosen' : ''}`} disabled=${!iGo && host?.id !== me.id} onClick=${onClick}>
+                  <span>${t.i} ${t.l}</span>${t.n > 0 && html`<b class="mono">${t.n}</b>`}
+                </button>`;
+            })}
+          </div>
+          ${host?.id === me.id && html`<p class="muted small">Jako saunamistr vybíráš finální rituál. Čísla jsou hlasy party.</p>`}
+        </div>`}
+
+      ${last && html`
+        <div class="card fire-card">
+          <div class="sub">Minulý rituál · ${short(last.s.date)}</div>
+          <div class="row" style="margin-top:8px">
+            <${Ava} m=${lastHost} members=${members} size=${40} />
+            <div class="grow"><b>${lastHost?.name}</b><div class="muted small">${last.r.kind ? ritualLabel(last.r.kind) : 'rituál'}</div></div>
+            <span class="mono fire-txt">🔥 ${fireCount(last.s.id)}</span>
+          </div>
+          ${iWasThere && lastHost?.id !== me.id && html`
+            <button class=${`btn ${iFired ? 'btn-ghost' : 'btn-fire'} btn-sm`} style="width:100%;margin-top:12px"
+              onClick=${() => act(() => api.fireRitual(last.s.date), iFired ? null : `🔥 pro ${lastHost?.name}`)}>${iFired ? 'Vzít 🔥 zpět' : 'Dát 🔥 za rituál'}</button>`}
+        </div>`}
+
+      ${past.length > 1 && html`
+        <div class="card">
+          <div class="sub">Historie sezóny</div>
+          ${past.slice(1).map(({ s, r }) => {
+            const h = members.find((m) => m.id === r.host_id);
+            return html`<div class="row between line">
+              <span class="row"><span class="mono small muted">${short(s.date)}</span> ${h?.name}</span>
+              <span class="muted small">${r.kind ? ritualLabel(r.kind) : ''} 🔥 ${fireCount(s.id)}</span></div>`;
+          })}
+        </div>`}
     </section>`;
 }
 
@@ -462,9 +704,9 @@ function App() {
   const safeAct = (...a) => act(...a).catch(() => {});
 
   const ctx = { me, members: base.members, seasons: base.seasons, settings: base.settings, season, data, setSeasonId, act: safeAct, go };
-  const tabs = [['dnes', '🧖', 'Dnes'], ['sezona', '🏆', 'Sezóna'], ['kasa', '💸', 'Kasa'], ...(me.is_admin ? [['admin', '⚙️', 'Admin']] : [])];
+  const tabs = [['dnes', '🧖', 'Dnes'], ['sezona', '🏆', 'Žebříček'], ['ritualy', '🌿', 'Rituály'], ['kasa', '💸', 'Kasa'], ...(me.is_admin ? [['admin', '⚙️', 'Admin']] : [])];
   const current = tabs.some((t) => t[0] === tab) ? tab : 'dnes';
-  const Page = { dnes: Today, sezona: Season, kasa: Kasa, admin: Admin }[current];
+  const Page = { dnes: Today, sezona: Season, ritualy: Rituals, kasa: Kasa, admin: Admin }[current];
 
   return html`
     <header class="bar">

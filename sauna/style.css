@@ -189,3 +189,56 @@ a { color: inherit; }
 @keyframes up { from { transform: translate(-50%, 12px); opacity: 0; } }
 @media (min-width: 800px) { .toast { bottom: 32px; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ---------- hra ---------- */
+.h2 { margin: 12px 0 0; font: 600 20px var(--f-display); }
+.streak, .drops { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 99px; font: 700 13px var(--f-mono); }
+.streak { background: rgba(255,182,39,.12); color: var(--plamen); }
+.drops { background: rgba(255,243,230,.08); }
+.me-score .row.between { align-items: flex-start; }
+
+.prizes { display: grid; gap: 8px; }
+.prize { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--uhlik-3); background: var(--uhlik-2); }
+.prize .medal { font-size: 28px; line-height: 1; }
+.prize b { font: 600 17px var(--f-display); }
+.prize .small { color: var(--para-dim); }
+.prize.p1 { background: var(--ohen); color: var(--uhlik); border-color: transparent; box-shadow: 0 10px 30px -12px rgba(255,90,31,.7); }
+.prize.p1 .small { color: var(--uhlik); font-weight: 700; }
+@media (min-width: 800px) { .prizes { grid-template-columns: 1.2fr 1fr 1fr; } }
+
+.lb { padding: 6px 16px; }
+.lb-row { display: grid; grid-template-columns: 28px 40px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--uhlik-3); }
+.lb-row:last-child { border-bottom: 0; }
+.lb-row .pos { font: 700 13px var(--f-mono); color: var(--para-mute); }
+.lb-row b { display: block; font-weight: 600; }
+.lb-row small { display: block; font-size: 12px; color: var(--para-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-row .pts { font: 700 15px var(--f-mono); }
+.lb-row.me b { color: var(--plamen); }
+.lb-row.zero { opacity: .45; }
+
+.rules summary { cursor: pointer; font-weight: 600; list-style: none; }
+.rules summary::-webkit-details-marker { display: none; }
+.rules summary::after { content: " ↓"; color: var(--para-mute); }
+.rules[open] summary::after { content: " ↑"; }
+.rules table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+.rules td { padding: 8px 0; border-bottom: 1px solid var(--uhlik-3); color: var(--para-dim); }
+.rules td:last-child { text-align: right; font: 700 13px var(--f-mono); color: var(--plamen); }
+.rules p { margin: 10px 0 0; }
+
+/* ---------- rituály ---------- */
+.host-card { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 24px 16px; border-color: var(--zhar);
+  background: radial-gradient(80% 60% at 50% 0%, rgba(255,90,31,.25), transparent), var(--uhlik-2); }
+.host-card .ava { margin-bottom: 6px; }
+.host-name { font: 800 28px var(--f-display); letter-spacing: -.02em; }
+.chance { display: grid; grid-template-columns: 30px 1fr 80px 44px; gap: 10px; align-items: center; padding: 8px 0; }
+.chance .mono { text-align: right; }
+.pbar { height: 8px; border-radius: 99px; background: var(--uhlik-3); overflow: hidden; }
+.pbar > div { height: 100%; border-radius: 99px; background: var(--ohen); }
+.vote-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+.vote-chip { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--uhlik-3); background: transparent; font-size: 14px; cursor: pointer; text-align: left; }
+.vote-chip:disabled { cursor: default; opacity: .7; }
+.vote-chip b { color: var(--plamen); }
+.vote-chip.mine { border-color: var(--zhar); background: rgba(255,90,31,.12); }
+.vote-chip.chosen { background: var(--ohen); color: var(--uhlik); border-color: transparent; }
+.vote-chip.chosen b { color: var(--uhlik); }
+.fire-card .fire-txt { font-size: 18px; }

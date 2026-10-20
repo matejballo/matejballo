@@ -35,17 +35,27 @@ export const api = {
   },
 
   async season(id) {
-    const [sessions, attendance, payments] = await Promise.all([
+    const inSeason = (table, cols) =>
+      sb.from(table).select(`${cols},sessions!inner(season_id)`).eq('sessions.season_id', id).then(ok);
+    const [sessions, attendance, payments, rituals, votes, fires] = await Promise.all([
       sb.from('sessions').select('id,date').eq('season_id', id).order('date').then(ok),
-      sb.from('attendance').select('session_id,member_id,charged_to,sessions!inner(season_id)').eq('sessions.season_id', id).then(ok),
+      inSeason('attendance', 'session_id,member_id,charged_to'),
       sb.from('payments').select('*').eq('season_id', id).order('paid_on').then(ok),
+      inSeason('rituals', 'session_id,host_id,kind,passed'),
+      inSeason('ritual_votes', 'session_id,member_id,kind'),
+      inSeason('ritual_fires', 'session_id,member_id'),
     ]);
-    return { sessions, attendance, payments };
+    return { sessions, attendance, payments, rituals, votes, fires };
   },
 
   toggle: (date, memberId) => sb.rpc('toggle_attendance', { p_date: date, p_member: memberId }).then(ok),
   addGuest: (date, name, chargedTo) =>
     sb.rpc('add_guest', { p_date: date, p_name: name, p_charged_to: chargedTo || null }).then(ok),
+  drawRitual: (date) => sb.rpc('draw_ritual', { p_date: date }).then(ok),
+  passRitual: (date) => sb.rpc('pass_ritual', { p_date: date }).then(ok),
+  setRitualKind: (date, kind) => sb.rpc('set_ritual_kind', { p_date: date, p_kind: kind }).then(ok),
+  voteRitual: (date, kind) => sb.rpc('vote_ritual', { p_date: date, p_kind: kind }).then(ok),
+  fireRitual: (date) => sb.rpc('fire_ritual', { p_date: date }).then(ok),
   addPayment: (payment) => sb.from('payments').insert(payment).then(ok),
   deletePayment: (id) => sb.from('payments').delete().eq('id', id).then(ok),
   saveSettings: (settings) => sb.from('settings').update(settings).eq('id', 1).then(ok),
