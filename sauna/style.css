@@ -274,3 +274,4 @@ a { color: inherit; }
 .avail .pbar { margin-top: 10px; }
 .avail-hint { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,182,39,.1); color: var(--plamen); font-size: 13px; font-weight: 500; }
 .btn:disabled.btn-fire { background: var(--uhlik-3); color: var(--para-mute); box-shadow: none; }
+.mute { color: var(--para-mute); }

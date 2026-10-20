@@ -1,5 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js';
+import { api, configured } from './api.js?v=20261020d';
+
+const VERSION = '20261020d';
 
 // ---------- pomocníci ----------
 
@@ -221,6 +223,7 @@ function Login({ toast }) {
       <${Mark} size=${56} />
       <h1>SAUNIČKA</h1>
       <p class="muted">Saunový klub Lužánky · úterý 21:00</p>
+      <p class="mute small" style="margin:0">verze ${VERSION}</p>
       ${!who ? html`
         <h2>Kdo jsi?</h2>
         <div class="who">
@@ -720,6 +723,7 @@ function Admin({ ctx }) {
         <button class="btn btn-ghost btn-sm" disabled=${!ibanOk}>Uložit</button>
       </form>
       <p class="muted small">Nový PIN pro člena: <code>node scripts/sauna-users.mjs reset slug</code></p>
+      <p class="mute small" style="margin:0">Verze appky: <code>${VERSION}</code></p>
     </section>`;
 }
 
