@@ -1,7 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js?v=20261020d';
+import { api, configured } from './api.js?v=20261020e';
 
-const VERSION = '20261020d';
+const VERSION = '20261020e';
 
 // ---------- pomocníci ----------
 
@@ -250,6 +250,8 @@ function Login({ toast }) {
 
 function Today({ ctx }) {
   const { me, members, seasons, data, season, act, go, settings } = ctx;
+  const [inviting, setInviting] = useState(false);
+  const [guestName, setGuestName] = useState('');
   const next = iso(nextTuesday());
   const prev = iso(addDays(nextTuesday(), -7));
   const nextSeason = seasons.find((s) => inSeason(s, next) && !s.closed_at);
@@ -273,6 +275,7 @@ function Today({ ctx }) {
   const cap = capacityOf(settings);
   const nextAbsent = nextSess ? data.absences.filter((a) => a.session_id === nextSess.id).map((a) => members.find((m) => m.id === a.member_id)).filter(Boolean) : [];
   const iOut = nextAbsent.some((m) => m.id === me.id);
+  const guestReqs = (data?.guestRequests || []).filter((r) => r.session_date === next);
   const free = Math.max(cap - nextGoing.length, 0);
   const full = free === 0;
   const pending = members.filter((m) => !m.is_guest && m.active && !nextGoing.some((g) => g.id === m.id) && !nextAbsent.some((a) => a.id === m.id));
@@ -298,9 +301,31 @@ function Today({ ctx }) {
         : iGo
           ? html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Škoda, dáme vědět dál.')}>Nakonec nemůžu</button>`
           : html`
-            <button class="btn btn-fire" disabled=${full} onClick=${(e) => { steam(e.currentTarget); act(() => api.toggle(next, me.id), next === iso(today()) ? 'Zapsáno. +10 💧 a ručník s sebou 🧖' : 'Zapsáno. Ručník s sebou. 🧖'); }}>${full ? `Plno (${cap}/${cap})` : iOut ? 'Jdu přece 🔥' : 'Jdu se potit 🔥'}</button>
-            ${!iOut && html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Dobře, dáme vědět dál.')}>Dnes nemůžu</button>`}`}
+            <div class="btn-row">
+              ${!iOut && html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Dobře, dáme vědět dál.')}>Dnes nemůžu</button>`}
+              <button class="btn btn-fire" disabled=${full} onClick=${(e) => { steam(e.currentTarget); act(() => api.toggle(next, me.id), next === iso(today()) ? 'Zapsáno. +10 💧 a ručník s sebou 🧖' : 'Zapsáno. Ručník s sebou. 🧖'); }}>${full ? `Plno (${cap}/${cap})` : iOut ? 'Jdu přece 🔥' : 'Jdu se potit 🔥'}</button>
+            </div>`}
         ${!closedNext && html`<p class="muted small" style="margin:-6px 0 0">Zápis a odepsání do ${signupTime(settings)} v den sauny.</p>`}
+        ${(!closedNext || guestReqs.length > 0) && html`
+          <div class="card">
+            <div class="row between">
+              <div><div class="sub">Host</div><b>${guestReqs.length ? 'Čeká na schválení' : 'Vezmeš někoho s sebou?'}</b></div>
+              ${!closedNext && !inviting && html`<button class="btn btn-ghost btn-sm" disabled=${full} onClick=${() => setInviting(true)}>🎟 Pozvat hosta</button>`}
+            </div>
+            ${inviting && !closedNext && html`
+              <form class="form" style="margin-top:10px" onSubmit=${(e) => { e.preventDefault(); if (!guestName.trim()) return; act(() => api.requestGuest(next, guestName), 'Žádost odeslaná, čeká na schválení adminem.').then((ok) => { if (ok) { setGuestName(''); setInviting(false); } }); }}>
+                <label>Jméno hosta <input value=${guestName} placeholder="Pepa" autofocus onInput=${(e) => setGuestName(e.target.value)} /></label>
+                <p class="muted small" style="margin:0">Host platí za tebe stejnou částku jako ty. Zapíše ho ${adminName}, až žádost schválí.</p>
+                <div class="row"><button class="btn btn-fire btn-sm">Poslat žádost</button><button type="button" class="btn btn-ghost btn-sm" onClick=${() => setInviting(false)}>Zrušit</button></div>
+              </form>`}
+            ${guestReqs.map((r) => html`
+              <div class="row between line">
+                <span><b>${r.name}</b> <span class="muted small">· pozval(a): ${members.find((m) => m.id === r.requested_by)?.name || '?'}</span></span>
+                ${me.is_admin
+                  ? html`<span class="row" style="gap:6px"><button class="btn btn-fire btn-sm" onClick=${() => act(() => api.decideGuest(r.id, true), `${r.name} schválen 🎟`, true)}>Schválit</button><button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.decideGuest(r.id, false), 'Zamítnuto')}>Zamítnout</button></span>`
+                  : r.requested_by === me.id ? html`<button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.cancelGuestRequest(r.id), 'Žádost zrušená')}>Zrušit</button>` : ''}
+              </div>`)}
+          </div>`}
         ${(nextAbsent.length > 0 || (free > 0 && pending.length > 0)) && html`
           <div class="card avail">
             <div class="row between"><div class="sub">Obsazenost · ${short(next)}</div><b class="mono">${nextGoing.length}/${cap}</b></div>
@@ -308,7 +333,7 @@ function Today({ ctx }) {
             ${nextAbsent.length > 0 && html`<div class="row" style="flex-wrap:wrap;gap:6px 10px;margin-top:10px"><span class="muted small">Nemůžou:</span>
               ${nextAbsent.map((m) => html`<span class="row" style="gap:6px"><${Ava} m=${m} members=${members} size=${22} off /><b class="small">${m.name}</b></span>`)}</div>`}
             ${pending.length > 0 && html`<div class="muted small" style="margin-top:8px">Bez odpovědi: ${pending.map((m) => m.name).join(', ')}</div>`}
-            ${free > 0 && nextAbsent.length > 0 && html`<div class="avail-hint">🎟 ${cz(free, 'Volné je', 'Volná jsou', 'Volných je')} ${free} ${cz(free, 'místo', 'místa', 'míst')}. Můžeš pozvat hosta, zapíše ho ${adminName}.</div>`}
+            ${free > 0 && nextAbsent.length > 0 && html`<div class="avail-hint">🎟 ${cz(free, 'Volné je', 'Volná jsou', 'Volných je')} ${free} ${cz(free, 'místo', 'místa', 'míst')}. Můžeš pozvat hosta, schválí ho ${adminName}.</div>`}
             ${full && html`<div class="avail-hint">Plno. Kdo se uvolní, dá vědět tady.</div>`}
           </div>`}
         ${nextGoing.length > 0 && html`
@@ -643,6 +668,18 @@ function Admin({ ctx }) {
       <${SeasonPicker} ctx=${ctx} />
       <h1>Admin</h1>
 
+      ${(data?.guestRequests?.length || 0) > 0 && html`
+        <div class="card" style="border-color:var(--zhar)">
+          <div class="sub">Žádosti o hosty · ke schválení</div>
+          ${data.guestRequests.map((r) => html`
+            <div class="pay-row">
+              <div class="grow"><b>${r.name}</b>
+                <div class="muted small">${long(r.session_date)} · pozval(a): ${members.find((m) => m.id === r.requested_by)?.name || '?'}, platí za hosta</div></div>
+              <button class="btn btn-fire btn-sm" onClick=${() => act(() => api.decideGuest(r.id, true), `${r.name} schválen 🎟`, true)}>Schválit</button>
+              <button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.decideGuest(r.id, false), 'Zamítnuto')}>×</button>
+            </div>`)}
+        </div>`}
+
       ${season && html`
         <div class="card">
           <div class="row between"><div><div class="sub">Sezóna</div><b>${season.name}</b>
@@ -784,10 +821,12 @@ function App() {
       if (okMsg) toast(okMsg);
       if (reloadBase) await loadBase();
       await loadSeason(seasonId);
+      return true;
     } catch (e) { toast(e.message); throw e; }
   };
-  const safeAct = (...a) => act(...a).catch(() => {});
+  const safeAct = (...a) => act(...a).catch(() => false);
 
+  const pendingGuests = me.is_admin ? (data?.guestRequests?.length || 0) : 0;
   const ctx = { me, members: base.members, seasons: base.seasons, settings: base.settings, season, data, setSeasonId, act: safeAct, go };
   const tabs = [['dnes', '🧖', 'Dnes'], ['sezona', '🏆', 'Žebříček'], ['ritualy', '🌿', 'Rituály'], ['kasa', '💸', 'Kasa'], ...(me.is_admin ? [['admin', '⚙️', 'Admin']] : [])];
   const current = tabs.some((t) => t[0] === tab) ? tab : 'dnes';
@@ -796,12 +835,12 @@ function App() {
   return html`
     <header class="bar">
       <span class="brand"><${Mark} size=${26} />SAUNIČKA</span>
-      <nav class="desk-tabs">${tabs.map(([k, , l]) => html`<a href=${`#${k}`} class=${k === current ? 'on' : ''}>${l}</a>`)}</nav>
+      <nav class="desk-tabs">${tabs.map(([k, , l]) => html`<a href=${`#${k}`} class=${k === current ? 'on' : ''}>${l}${k === 'admin' && pendingGuests > 0 ? html`<span class="badge">${pendingGuests}</span>` : ''}</a>`)}</nav>
       <button class="me-btn" title="Odhlásit" onClick=${() => confirm('Odhlásit se?') && api.signOut()}><${Ava} m=${me} members=${base.members} size=${32} /></button>
     </header>
     <${Page} ctx=${ctx} />
     <nav class="tabbar" style=${`grid-template-columns:repeat(${tabs.length},1fr)`}>
-      ${tabs.map(([k, i, l]) => html`<a href=${`#${k}`} class=${k === current ? 'on' : ''}><i>${i}</i>${l}</a>`)}
+      ${tabs.map(([k, i, l]) => html`<a href=${`#${k}`} class=${k === current ? 'on' : ''}><i>${i}</i>${l}${k === 'admin' && pendingGuests > 0 ? html`<span class="badge">${pendingGuests}</span>` : ''}</a>`)}
     </nav>
     ${msg && html`<div class="toast">${msg}</div>`}`;
 }

@@ -275,3 +275,10 @@ a { color: inherit; }
 .avail-hint { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,182,39,.1); color: var(--plamen); font-size: 13px; font-weight: 500; }
 .btn:disabled.btn-fire { background: var(--uhlik-3); color: var(--para-mute); box-shadow: none; }
 .mute { color: var(--para-mute); }
+
+/* ---------- tlačítka vedle sebe, odznak, hosté ---------- */
+.btn-row { display: flex; gap: 10px; }
+.btn-row .btn { flex: 1; padding: 0 12px; }
+.badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 99px; background: var(--zhar); color: var(--uhlik); font: 700 11px var(--f-mono); }
+.tabbar a { position: relative; }
+.tabbar .badge { position: absolute; top: 0; left: calc(50% + 6px); margin: 0; }
