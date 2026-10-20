@@ -269,3 +269,8 @@ a { color: inherit; }
 /* odznak série mírně žhne */
 .streak { animation: glow 2.4s ease-in-out infinite alternate; }
 @keyframes glow { from { box-shadow: 0 0 0 0 rgba(255,182,39,0); } to { box-shadow: 0 0 14px 0 rgba(255,182,39,.35); } }
+
+/* ---------- obsazenost ---------- */
+.avail .pbar { margin-top: 10px; }
+.avail-hint { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,182,39,.1); color: var(--plamen); font-size: 13px; font-weight: 500; }
+.btn:disabled.btn-fire { background: var(--uhlik-3); color: var(--para-mute); box-shadow: none; }
