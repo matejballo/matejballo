@@ -1,4 +1,4 @@
--- PÁRA · hra: ceny, rituály, hlasování a 🔥
+-- SAUNIČKA · hra: ceny, rituály, hlasování a 🔥
 -- Spusť celé v Supabase → SQL Editor → New query → Run (jednou, po schema.sql).
 
 -- ============================================================

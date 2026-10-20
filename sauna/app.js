@@ -187,13 +187,13 @@ function Login({ toast }) {
   };
 
   if (!configured) return html`
-    <main class="login"><${Mark} size=${56} /><h1>PÁRA</h1>
+    <main class="login"><${Mark} size=${56} /><h1>SAUNIČKA</h1>
       <div class="card">Appka zatím není napojená na databázi. Doplň <code>sauna/config.js</code>.</div></main>`;
 
   return html`
     <main class="login">
       <${Mark} size=${56} />
-      <h1>PÁRA</h1>
+      <h1>SAUNIČKA</h1>
       <p class="muted">Saunový klub Lužánky · úterý 21:00</p>
       ${!who ? html`
         <h2>Kdo jsi?</h2>
@@ -710,7 +710,7 @@ function App() {
 
   return html`
     <header class="bar">
-      <span class="brand"><${Mark} size=${26} />PÁRA</span>
+      <span class="brand"><${Mark} size=${26} />SAUNIČKA</span>
       <nav class="desk-tabs">${tabs.map(([k, , l]) => html`<a href=${`#${k}`} class=${k === current ? 'on' : ''}>${l}</a>`)}</nav>
       <button class="me-btn" title="Odhlásit" onClick=${() => confirm('Odhlásit se?') && api.signOut()}><${Ava} m=${me} members=${base.members} size=${32} /></button>
     </header>

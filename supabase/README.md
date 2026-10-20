@@ -1,4 +1,4 @@
-# PÁRA · nastavení databáze
+# SAUNIČKA · nastavení databáze
 
 Appka běží na `matejballo.com/sauna`, data jsou v Supabase (free tier).
 
