@@ -1,7 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js?v=20261020g';
+import { api, configured } from './api.js?v=20261020h';
 
-const VERSION = '20261020g';
+const VERSION = '20261020h';
 
 // ---------- pomocníci ----------
 
@@ -23,6 +23,22 @@ const signupTime = (settings) => hhmm(settings?.signup_deadline, '18:30');
 const drawTime = (settings) => hhmm(settings?.draw_deadline, '19:00');
 const capacityOf = (settings) => settings?.capacity ?? 7;
 const cz = (n, one, few, many) => (n === 1 ? one : n >= 2 && n <= 4 ? few : many);
+// Kdo musí hosta odsouhlasit: každý zapsaný člen kromě toho, kdo ho zve
+function guestVoting(r, data, members) {
+  const sess = data.sessions.find((s) => s.date === r.session_date);
+  const needed = sess
+    ? data.attendance.filter((a) => a.session_id === sess.id).map((a) => members.find((m) => m.id === a.member_id)).filter((m) => m && !m.is_guest && m.id !== r.requested_by)
+    : [];
+  const votes = (data.guestVotes || []).filter((v) => v.request_id === r.id);
+  const said = (id) => votes.find((v) => v.member_id === id);
+  return {
+    needed,
+    yes: needed.filter((m) => said(m.id)?.approve),
+    no: votes.filter((v) => !v.approve).map((v) => members.find((m) => m.id === v.member_id)).filter(Boolean),
+    waiting: needed.filter((m) => !said(m.id)),
+    mine: said,
+  };
+}
 const afterDeadline = (date, time) => new Date() > new Date(`${date}T${time}:00`);
 const signupClosed = (settings, date) => afterDeadline(date, signupTime(settings));
 const drawClosed = (settings, date) => afterDeadline(date, drawTime(settings));
@@ -308,22 +324,33 @@ function Today({ ctx }) {
         ${(!closedNext || guestReqs.length > 0) && html`
           <div class="card">
             <div class="row between">
-              <div><div class="sub">Host</div><b>${guestReqs.length ? 'Čeká na schválení' : 'Vezmeš někoho s sebou?'}</b></div>
+              <div><div class="sub">Host</div><b>${guestReqs.length ? 'Hlasujeme o hostovi' : 'Vezmeš někoho s sebou?'}</b></div>
               ${!closedNext && !inviting && html`<button class="btn btn-ghost btn-sm" disabled=${full} onClick=${() => setInviting(true)}>🎟 Pozvat hosta</button>`}
             </div>
             ${inviting && !closedNext && html`
-              <form class="form" style="margin-top:10px" onSubmit=${(e) => { e.preventDefault(); if (!guestName.trim()) return; act(() => api.requestGuest(next, guestName), 'Žádost odeslaná, čeká na schválení adminem.').then((ok) => { if (ok) { setGuestName(''); setInviting(false); } }); }}>
+              <form class="form" style="margin-top:10px" onSubmit=${(e) => { e.preventDefault(); if (!guestName.trim()) return; act(() => api.requestGuest(next, guestName), 'Žádost odeslaná. Teď to musí odsouhlasit ostatní.').then((ok) => { if (ok) { setGuestName(''); setInviting(false); } }); }}>
                 <label>Jméno hosta <input value=${guestName} placeholder="Pepa" autofocus onInput=${(e) => setGuestName(e.target.value)} /></label>
-                <p class="muted small" style="margin:0">Host platí za tebe stejnou částku jako ty. Zapíše ho ${adminName}, až žádost schválí.</p>
+                <p class="muted small" style="margin:0">Host platí za tebe stejnou částku jako ty. Zapíše se, až s ním souhlasí všichni, kdo jdou (${adminName} může rozhodnout výjimečně).</p>
                 <div class="row"><button class="btn btn-fire btn-sm">Poslat žádost</button><button type="button" class="btn btn-ghost btn-sm" onClick=${() => setInviting(false)}>Zrušit</button></div>
               </form>`}
-            ${guestReqs.map((r) => html`
-              <div class="row between line">
-                <span><b>${r.name}</b> <span class="muted small">· pozval(a): ${members.find((m) => m.id === r.requested_by)?.name || '?'}</span></span>
-                ${me.is_admin
-                  ? html`<span class="row" style="gap:6px"><button class="btn btn-fire btn-sm" onClick=${() => act(() => api.decideGuest(r.id, true), `${r.name} schválen 🎟`, true)}>Schválit</button><button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.decideGuest(r.id, false), 'Zamítnuto')}>Zamítnout</button></span>`
-                  : r.requested_by === me.id ? html`<button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.cancelGuestRequest(r.id), 'Žádost zrušená')}>Zrušit</button>` : ''}
-              </div>`)}
+            ${guestReqs.map((r) => {
+              const g = guestVoting(r, data, members);
+              const mineVote = g.mine(me.id);
+              const canVote = r.requested_by !== me.id && g.needed.some((m) => m.id === me.id) && !closedNext;
+              const by = members.find((m) => m.id === r.requested_by)?.name || '?';
+              return html`
+              <div class="guest-req">
+                <div class="row between">
+                  <span><b>${r.name}</b> <span class="muted small">· pozval(a): ${by}</span></span>
+                  ${r.requested_by === me.id && html`<button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.cancelGuestRequest(r.id), 'Žádost zrušená')}>Zrušit</button>`}
+                </div>
+                <div class="muted small" style="margin-top:6px">Souhlasí ${g.yes.length} z ${g.needed.length}${g.no.length ? html` · <span class="due">nesouhlasí: ${g.no.map((m) => m.name).join(', ')}</span>` : ''}${g.waiting.length ? ` · čekáme na: ${g.waiting.map((m) => m.name).join(', ')}` : ''}</div>
+                ${canVote && html`<div class="btn-row" style="margin-top:10px">
+                  <button class=${`btn btn-ghost btn-sm ${mineVote && !mineVote.approve ? 'on' : ''}`} onClick=${() => act(() => api.voteGuest(r.id, false), 'Hlas zapsán', true)}>👎 Nesouhlasím</button>
+                  <button class=${`btn btn-fire btn-sm ${mineVote?.approve ? 'voted' : ''}`} onClick=${() => act(() => api.voteGuest(r.id, true), 'Hlas zapsán 👍', true)}>${mineVote?.approve ? '👍 Souhlasím ✓' : '👍 Souhlasím'}</button>
+                </div>`}
+              </div>`;
+            })}
           </div>`}
         ${(nextAbsent.length > 0 || (free > 0 && pending.length > 0)) && html`
           <div class="card avail">
@@ -332,7 +359,7 @@ function Today({ ctx }) {
             ${nextAbsent.length > 0 && html`<div class="row" style="flex-wrap:wrap;gap:6px 10px;margin-top:10px"><span class="muted small">Nemůžou:</span>
               ${nextAbsent.map((m) => html`<span class="row" style="gap:6px"><${Ava} m=${m} members=${members} size=${22} off /><b class="small">${m.name}</b></span>`)}</div>`}
             ${pending.length > 0 && html`<div class="muted small" style="margin-top:8px">Bez odpovědi: ${pending.map((m) => m.name).join(', ')}</div>`}
-            ${free > 0 && nextAbsent.length > 0 && html`<div class="avail-hint">🎟 ${cz(free, 'Volné je', 'Volná jsou', 'Volných je')} ${free} ${cz(free, 'místo', 'místa', 'míst')}. Můžeš pozvat hosta, schválí ho ${adminName}.</div>`}
+            ${free > 0 && nextAbsent.length > 0 && html`<div class="avail-hint">🎟 ${cz(free, 'Volné je', 'Volná jsou', 'Volných je')} ${free} ${cz(free, 'místo', 'místa', 'míst')}. Můžeš pozvat hosta, musí ho odsouhlasit všichni, kdo jdou.</div>`}
             ${full && html`<div class="avail-hint">Plno. Kdo se uvolní, dá vědět tady.</div>`}
           </div>`}
         ${nextGoing.length > 0 && html`
@@ -669,13 +696,14 @@ function Admin({ ctx }) {
 
       ${(data?.guestRequests?.length || 0) > 0 && html`
         <div class="card" style="border-color:var(--zhar)">
-          <div class="sub">Žádosti o hosty · ke schválení</div>
+          <div class="sub">Žádosti o hosty · rozhodni natvrdo</div>
           ${data.guestRequests.map((r) => html`
             <div class="pay-row">
               <div class="grow"><b>${r.name}</b>
-                <div class="muted small">${long(r.session_date)} · pozval(a): ${members.find((m) => m.id === r.requested_by)?.name || '?'}, platí za hosta</div></div>
+                <div class="muted small">${long(r.session_date)} · pozval(a): ${members.find((m) => m.id === r.requested_by)?.name || '?'}, platí za hosta</div>
+                ${(() => { const g = guestVoting(r, data, members); return html`<div class="muted small">Souhlasí ${g.yes.length} z ${g.needed.length}${g.no.length ? ` · nesouhlasí: ${g.no.map((m) => m.name).join(', ')}` : ''}</div>`; })()}</div>
               <button class="btn btn-fire btn-sm" onClick=${() => act(() => api.decideGuest(r.id, true), `${r.name} schválen 🎟`, true)}>Schválit</button>
-              <button class="btn btn-ghost btn-sm" onClick=${() => act(() => api.decideGuest(r.id, false), 'Zamítnuto')}>×</button>
+              <button class="btn btn-ghost btn-sm" aria-label="Zamítnout" onClick=${() => act(() => api.decideGuest(r.id, false), 'Zamítnuto')}>×</button>
             </div>`)}
         </div>`}
 

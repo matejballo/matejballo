@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js?v=20261020g';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js?v=20261020h';
 
 export const configured = !SUPABASE_URL.includes('YOUR-');
 const sb = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -37,7 +37,7 @@ export const api = {
   async season(id) {
     const inSeason = (table, cols) =>
       sb.from(table).select(`${cols},sessions!inner(season_id)`).eq('sessions.season_id', id).then(ok);
-    const [sessions, attendance, payments, rituals, votes, fires, absences, guestRequests] = await Promise.all([
+    const [sessions, attendance, payments, rituals, votes, fires, absences, guestRequests, guestVotes] = await Promise.all([
       sb.from('sessions').select('id,date').eq('season_id', id).order('date').then(ok),
       inSeason('attendance', 'session_id,member_id,charged_to'),
       sb.from('payments').select('*').eq('season_id', id).order('paid_on').then(ok),
@@ -46,13 +46,15 @@ export const api = {
       inSeason('ritual_fires', 'session_id,member_id'),
       inSeason('absences', 'session_id,member_id'),
       sb.from('guest_requests').select('*').eq('status', 'pending').order('created_at').then(ok),
+      sb.from('guest_votes').select('request_id,member_id,approve').then(ok),
     ]);
-    return { sessions, attendance, payments, rituals, votes, fires, absences, guestRequests };
+    return { sessions, attendance, payments, rituals, votes, fires, absences, guestRequests, guestVotes };
   },
 
   toggle: (date, memberId) => sb.rpc('toggle_attendance', { p_date: date, p_member: memberId }).then(ok),
   toggleAbsence: (date, memberId) => sb.rpc('toggle_absence', { p_date: date, p_member: memberId }).then(ok),
   requestGuest: (date, name) => sb.rpc('request_guest', { p_date: date, p_name: name }).then(ok),
+  voteGuest: (id, approve) => sb.rpc('vote_guest', { p_request: id, p_approve: approve }).then(ok),
   cancelGuestRequest: (id) => sb.rpc('cancel_guest_request', { p_request: id }).then(ok),
   decideGuest: (id, approve) => sb.rpc('decide_guest', { p_request: id, p_approve: approve }).then(ok),
   addGuest: (date, name, chargedTo) =>

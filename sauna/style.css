@@ -284,3 +284,5 @@ a { color: inherit; }
 .tabbar .badge { position: absolute; top: 0; left: calc(50% + 6px); margin: 0; }
 .btn-ghost.on { border-color: var(--zhar); background: rgba(255,90,31,.12); }
 .login h1 { padding: 0 .08em; } /* ať se poslední písmeno s gradientem neořízne */
+.guest-req { padding: 12px 0; border-top: 1px solid var(--uhlik-3); margin-top: 12px; }
+.btn-fire.voted { box-shadow: 0 0 0 2px rgba(255,243,230,.35), 0 8px 28px -8px rgba(255,90,31,.7); }
