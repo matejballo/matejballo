@@ -1,7 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js?v=20261021a';
+import { api, configured } from './api.js?v=20261021c';
 
-const VERSION = '20261021a';
+const VERSION = '20261021c';
 
 // ---------- pomocníci ----------
 
@@ -127,18 +127,22 @@ const levelOf = (k) => LEVELS.filter((l) => k >= l[0]).pop() || LEVELS[0];
 const nextLevelOf = (k) => LEVELS.find((l) => l[0] > k);
 
 const kapkyText = (n) => (n < 0 ? `−${Math.abs(n)}` : String(n));
-const POINTS = { visit: 10, streak: 1, host: 15, fire: 1, guest: 5, fullSeason: 20, silent: 5 };
+const POINTS = { visit: 10, streak: 1, host: 15, fire: 1, guest: 5, fullSeason: 20, silent: 5, silentCame: 10 };
 const PRIZES = ['🧢 Saunová čepice', '🌿 Březová metlička', '🍺 Pivo'];
 
-// Mínus body: po uzávěrce zápisu se nikde neozval (ani "jdu", ani "nemůžu") včas.
-// Počítá se jen od data v nastavení, ať se nikdo netrestá zpětně.
-function silentOn(session, m, data, settings) {
+// Mínus body za to, že se někdo neozval v okně zápisu (pondělí 12:00 až úterý 18:30):
+//  −10  přišel, ale nedal vědět (zaklikne admin v Docházce, platí vždy)
+//  −5   nepřišel a neozval se ("jdu" ani "nemůžu"), počítá se automaticky po uzávěrce
+//       a jen od data v nastavení, ať se nikdo netrestá zpětně
+function penaltyOn(session, m, data, settings) {
+  const row = data.attendance.find((a) => a.session_id === session.id && a.member_id === m.id);
+  if (row?.no_notice) return POINTS.silentCame;
+  if (row || !m.active) return 0;
   const from = settings?.penalty_from;
-  if (!from || session.date < from) return false;
-  const deadline = new Date(`${session.date}T${signupTime(settings)}:00`);
-  if (new Date() <= deadline) return false;
-  const inTime = (row) => row.member_id === m.id && row.session_id === session.id && (!row.created_at || new Date(row.created_at) <= deadline);
-  return !(data.attendance.some(inTime) || (data.absences || []).some(inTime));
+  if (!from || session.date < from) return 0;
+  if (new Date() <= new Date(`${session.date}T${signupTime(settings)}:00`)) return 0;
+  if ((data.absences || []).some((a) => a.session_id === session.id && a.member_id === m.id)) return 0;
+  return POINTS.silent;
 }
 
 // Kapky, série a pořadí v sezóně. Počítají se jen úterky, které už proběhly.
@@ -149,8 +153,10 @@ function game(season, data, members, settings) {
   const att = new Set(data.attendance.map((a) => `${a.session_id}|${a.member_id}`));
   const hostOf = new Map(data.rituals.filter((r) => r.host_id).map((r) => [r.session_id, r.host_id]));
 
-  const rows = members.filter((m) => !m.is_guest && m.active).map((m) => {
-    const p = { member: m, kapky: 0, visits: 0, streak: 0, best: 0, hosted: 0, fires: 0, guests: 0, silent: 0, full: false };
+  // v žebříčku jsou aktivní členové a bývalí členové, kteří v téhle sezóně byli (bez účtu, bez mínus bodů)
+  const attendedIds = new Set(data.attendance.map((a) => a.member_id));
+  const rows = members.filter((m) => !m.is_guest && (m.active || attendedIds.has(m.id))).map((m) => {
+    const p = { member: m, kapky: 0, visits: 0, streak: 0, best: 0, hosted: 0, fires: 0, guests: 0, silent: 0, penalty: 0, full: false };
     let run = 0;
     for (const s of held) {
       if (att.has(`${s.id}|${m.id}`)) {
@@ -160,7 +166,8 @@ function game(season, data, members, settings) {
         p.best = Math.max(p.best, run);
       } else run = 0;
       if (hostOf.get(s.id) === m.id) { p.hosted++; p.kapky += POINTS.host; }
-      if (silentOn(s, m, data, settings)) { p.silent++; p.kapky -= POINTS.silent; }
+      const pen = penaltyOn(s, m, data, settings);
+      if (pen) { p.silent++; p.penalty += pen; p.kapky -= pen; }
     }
     p.streak = run;
     p.fires = data.fires.filter((f) => heldIds.has(f.session_id) && hostOf.get(f.session_id) === m.id).length;
@@ -343,7 +350,7 @@ function Today({ ctx }) {
               <button class="btn btn-fire" disabled=${full} onClick=${(e) => { steam(e.currentTarget); act(() => api.toggle(next, me.id), next === iso(today()) ? 'Zapsáno. +10 💧 a ručník s sebou 🧖' : 'Zapsáno. Ručník s sebou. 🧖'); }}>${full ? `Plno (${cap}/${cap})` : iOut ? 'Jdu přece 🔥' : 'Jdu se potit 🔥'}</button>
             </div>`}
         ${!notOpen && !closedNext && html`<p class=${`small ${!iGo && !iOut ? 'warn' : 'muted'}`} style="margin:-6px 0 0">${!iGo && !iOut
-          ? `⏰ Zatím bez odpovědi. Do ${signupTime(settings)} klikni na jedno z tlačítek, jinak −${POINTS.silent} 💧.`
+          ? `⏰ Zatím bez odpovědi. Do ${signupTime(settings)} klikni na jedno z tlačítek. Bez odpovědi je to −${POINTS.silent} 💧, a když přijdeš bez ohlášení, −${POINTS.silentCame} 💧.`
           : `Změnit se to dá do ${signupTime(settings)} v den sauny.`}</p>`}
         ${((!notOpen && !closedNext) || guestReqs.length > 0) && html`
           <div class="card">
@@ -541,7 +548,7 @@ function Season({ ctx }) {
               <span class="pos">${r.visits ? `${r.rank}.` : '–'}</span>
               <${Ava} m=${r.member} members=${members} size=${36} ring=${r.streak >= 3} />
               <div class="grow"><b>${r.member.name}${r.rank === 1 && r.visits ? ' 👑' : ''}</b>
-                <small>${l[1]}° ${l[2]}${r.streak >= 2 ? ` · 🔥 ${r.streak}` : ''}${r.hosted ? ` · 🪣 ${r.hosted}` : ''}${r.full ? ' · 🏅 celá sezóna' : ''}${r.silent ? ` · 🤐 −${r.silent * POINTS.silent}` : ''}</small></div>
+                <small>${l[1]}° ${l[2]}${r.streak >= 2 ? ` · 🔥 ${r.streak}` : ''}${r.hosted ? ` · 🪣 ${r.hosted}` : ''}${r.full ? ' · 🏅 celá sezóna' : ''}${r.penalty ? ` · 🤐 −${r.penalty}` : ''}</small></div>
               <span class=${`pts ${r.rank === 1 && r.visits ? 'shimmer' : ''}`}>💧 ${kapkyText(r.kapky)}</span>
             </div>`;
         })}
@@ -556,7 +563,8 @@ function Season({ ctx }) {
           <tr><td>Každý 🔥 za tvůj rituál</td><td>+${POINTS.fire}</td></tr>
           <tr><td>Přivedený host</td><td>+${POINTS.guest}</td></tr>
           <tr><td>Celá sezóna bez absence</td><td>+${POINTS.fullSeason}</td></tr>
-          <tr><td>Nezareagoval(a) jsi do uzávěrky (ani „jdu“, ani „nemůžu“)</td><td class="neg">−${POINTS.silent}</td></tr>
+          <tr><td>Neozval(a) ses v okně zápisu („jdu“ ani „nemůžu“) a nepřišel(a)</td><td class="neg">−${POINTS.silent}</td></tr>
+          <tr><td>Přišel(a) jsi bez ohlášení (označí admin)</td><td class="neg">−${POINTS.silentCame}</td></tr>
         </table>
         <p class="muted small">Teploměr: ${LEVELS.map((l) => `${l[1]}° ${l[2]} (${l[0]}+)`).join(' · ')}</p>
       </details>
@@ -862,17 +870,24 @@ function Admin({ ctx }) {
         data.sessions.forEach((x) => { if (!tuesdays.includes(x.date)) tuesdays.push(x.date); });
         tuesdays.sort().reverse();
         const sess = data.sessions.find((x) => x.date === attDate);
-        const attIds = new Set(sess ? data.attendance.filter((a) => a.session_id === sess.id).map((a) => a.member_id) : []);
+        const attRows = new Map(sess ? data.attendance.filter((a) => a.session_id === sess.id).map((a) => [a.member_id, a]) : []);
+        const attIds = new Set(attRows.keys());
         const absIds = new Set(sess ? data.absences.filter((a) => a.session_id === sess.id).map((a) => a.member_id) : []);
         const list = members.filter((m) => (!m.is_guest && m.active) || attIds.has(m.id));
-        const stateOf = (m) => (attIds.has(m.id) ? 'in' : absIds.has(m.id) ? 'out' : 'none');
+        const stateOf = (m) => (attIds.has(m.id) ? (attRows.get(m.id).no_notice ? 'late' : 'in') : absIds.has(m.id) ? 'out' : 'none');
         const setPresence = (m, target) => {
           const cur = stateOf(m);
           if (cur === target) return;
-          const viaAttendance = target === 'in' || (target === 'none' && cur === 'in');
-          act(() => (viaAttendance ? api.toggle(attDate, m.id) : api.toggleAbsence(attDate, m.id)), null, true);
+          const attending = cur === 'in' || cur === 'late';
+          const steps = [];
+          if (target === 'in' || target === 'late') {
+            if (!attending) steps.push(() => api.toggle(attDate, m.id)); // zapíše účast a smaže případné "nemůžu"
+            if (target === 'late' || cur === 'late') steps.push(() => api.setNoNotice(attDate, m.id, target === 'late'));
+          } else if (target === 'out') steps.push(() => api.toggleAbsence(attDate, m.id));
+          else steps.push(() => (attending ? api.toggle(attDate, m.id) : api.toggleAbsence(attDate, m.id)));
+          act(async () => { for (const step of steps) await step(); }, null, true);
         };
-        const silentFlag = (m) => sess && !m.is_guest && silentOn(sess, m, data, settings);
+        const silentFlag = (m) => (sess && !m.is_guest ? penaltyOn(sess, m, data, settings) : 0);
         return html`
           <div class="card">
             <div class="sub">Docházka · zaklikávání</div>
@@ -884,14 +899,15 @@ function Admin({ ctx }) {
             ${list.map((m) => { const st = stateOf(m); return html`
               <div class="att-row">
                 <${Ava} m=${m} members=${members} size=${28} off=${st === 'out'} />
-                <span class="grow"><b>${m.name}</b>${m.is_guest ? html` <span class="tag">host</span>` : ''}${silentFlag(m) ? html` <span class="tag" title="Nezareagoval včas">🤐 −${POINTS.silent}</span>` : ''}</span>
+                <span class="grow"><b>${m.name}</b>${m.is_guest ? html` <span class="tag">host</span>` : ''}${silentFlag(m) ? html` <span class="tag" title="Mínus body za nereakci">🤐 −${silentFlag(m)}</span>` : ''}</span>
                 <div class="seg" role="group" aria-label=${m.name}>
                   <button class=${st === 'in' ? 'on in' : ''} onClick=${() => setPresence(m, 'in')}>✓ Byl</button>
-                  <button class=${st === 'out' ? 'on out' : ''} onClick=${() => setPresence(m, 'out')}>😰</button>
+                  <button class=${st === 'late' ? 'on late' : ''} title="Byl, ale nedal vědět" aria-label="Byl, ale nedal vědět" onClick=${() => setPresence(m, 'late')}>🤐</button>
+                  <button class=${st === 'out' ? 'on out' : ''} title="Nemohl" aria-label="Nemohl" onClick=${() => setPresence(m, 'out')}>😰</button>
                   <button class=${st === 'none' ? 'on' : ''} onClick=${() => setPresence(m, 'none')}>–</button>
                 </div>
               </div>`; })}
-            <p class="muted small" style="margin:8px 0 0">„😰“ = nemohl, „–“ = bez odpovědi. Kdo přišel a včas se neozval, má štítek 🤐 −${POINTS.silent}. Zapsat ho až dodatečně ten štítek nesmaže.</p>
+            <p class="muted small" style="margin:8px 0 0">„✓ Byl“ = přišel a dal vědět · „🤐“ = přišel, ale nedal vědět (−${POINTS.silentCame} 💧) · „😰“ = nemohl · „–“ = nepřišel a neozval se (−${POINTS.silent} 💧 automaticky po uzávěrce).</p>
           </div>`;
       })()}
 
@@ -915,8 +931,8 @@ function Admin({ ctx }) {
           <label>Zápis zavře v <input type="time" value=${dl.signup} onInput=${(e) => setDl({ ...dl, signup: e.target.value })} /></label>
           <label>Los saunamistra do <input type="time" value=${dl.draw} onInput=${(e) => setDl({ ...dl, draw: e.target.value })} /></label>
         </div>
-        <label>Mínus body za mlčení od <input type="date" value=${dl.from} onInput=${(e) => setDl({ ...dl, from: e.target.value })} /></label>
-        <p class="muted small" style="margin:0">Teď: zápis se otevírá ${DAY_IN[addDays(parse(nextDate), -(Number(dl.openDays) || 0)).getDay()]} ${atTime(dl.open || '12:00')} a zavírá ${DAY_IN[parse(nextDate).getDay()]} ${atTime(dl.signup || '18:30')}. Mimo to okno nikdo kromě admina nezapíše ani neodepíše účast. Kdo se v okně neozve ani jedním tlačítkem, dostane −${POINTS.silent} 💧 (jen u úterků od zvoleného data, prázdné = nikdy).</p>
+        <label>Automatické −${POINTS.silent} body od <input type="date" value=${dl.from} onInput=${(e) => setDl({ ...dl, from: e.target.value })} /></label>
+        <p class="muted small" style="margin:0">Teď: zápis se otevírá ${DAY_IN[addDays(parse(nextDate), -(Number(dl.openDays) || 0)).getDay()]} ${atTime(dl.open || '12:00')} a zavírá ${DAY_IN[parse(nextDate).getDay()]} ${atTime(dl.signup || '18:30')}. Mimo to okno nikdo kromě admina nezapíše ani neodepíše účast. Kdo se v okně neozve ani jedním tlačítkem a nepřijde, dostane −${POINTS.silent} 💧 automaticky (jen u úterků od zvoleného data, prázdné = nikdy). Kdo přijde bez ohlášení, dostane −${POINTS.silentCame} 💧, když ho tak označí admin v Docházce.</p>
         <button class="btn btn-ghost btn-sm" disabled=${!dl.signup || !dl.draw || !dl.open || !(Number(dl.cap) >= 1)}>Uložit</button>
       </form>
 

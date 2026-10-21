@@ -316,3 +316,4 @@ a { color: inherit; }
 .seg button.on.out { background: rgba(255,107,94,.2); color: #FF9C92; }
 label.inline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--para-dim); }
 label.inline select { flex: 1; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--uhlik-3); background: var(--uhlik); color: var(--para); }
+.seg button.on.late { background: rgba(255,182,39,.22); color: var(--plamen); }

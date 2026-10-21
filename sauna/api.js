@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js?v=20261021a';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js?v=20261021c';
 
 export const configured = !SUPABASE_URL.includes('YOUR-');
 const sb = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -39,7 +39,7 @@ export const api = {
       sb.from(table).select(`${cols},sessions!inner(season_id)`).eq('sessions.season_id', id).then(ok);
     const [sessions, attendance, payments, rituals, votes, fires, absences, guestRequests, guestVotes] = await Promise.all([
       sb.from('sessions').select('id,date').eq('season_id', id).order('date').then(ok),
-      inSeason('attendance', 'session_id,member_id,charged_to,created_at'),
+      inSeason('attendance', 'session_id,member_id,charged_to,created_at,no_notice'),
       sb.from('payments').select('*').eq('season_id', id).order('paid_on').then(ok),
       inSeason('rituals', 'session_id,host_id,kind,passed'),
       inSeason('ritual_votes', 'session_id,member_id,kind'),
@@ -65,6 +65,10 @@ export const api = {
   setRitualKind: (date, kind) => sb.rpc('set_ritual_kind', { p_date: date, p_kind: kind }).then(ok),
   voteRitual: (date, kind) => sb.rpc('vote_ritual', { p_date: date, p_kind: kind }).then(ok),
   fireRitual: (date) => sb.rpc('fire_ritual', { p_date: date }).then(ok),
+  async setNoNotice(date, memberId, value) {
+    const s = await sb.from('sessions').select('id').eq('date', date).single().then(ok);
+    return sb.from('attendance').update({ no_notice: value }).eq('session_id', s.id).eq('member_id', memberId).then(ok);
+  },
   resetRitual: (sessionId) => sb.from('rituals').delete().eq('session_id', sessionId).then(ok),
   addPayment: (payment) => sb.from('payments').insert(payment).then(ok),
   deletePayment: (id) => sb.from('payments').delete().eq('id', id).then(ok),
