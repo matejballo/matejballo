@@ -1,5 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js?v=20261020i';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js?v=20261021a';
 
 export const configured = !SUPABASE_URL.includes('YOUR-');
 const sb = configured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -39,12 +39,12 @@ export const api = {
       sb.from(table).select(`${cols},sessions!inner(season_id)`).eq('sessions.season_id', id).then(ok);
     const [sessions, attendance, payments, rituals, votes, fires, absences, guestRequests, guestVotes] = await Promise.all([
       sb.from('sessions').select('id,date').eq('season_id', id).order('date').then(ok),
-      inSeason('attendance', 'session_id,member_id,charged_to'),
+      inSeason('attendance', 'session_id,member_id,charged_to,created_at'),
       sb.from('payments').select('*').eq('season_id', id).order('paid_on').then(ok),
       inSeason('rituals', 'session_id,host_id,kind,passed'),
       inSeason('ritual_votes', 'session_id,member_id,kind'),
       inSeason('ritual_fires', 'session_id,member_id'),
-      inSeason('absences', 'session_id,member_id'),
+      inSeason('absences', 'session_id,member_id,created_at'),
       sb.from('guest_requests').select('*').eq('status', 'pending').order('created_at').then(ok),
       sb.from('guest_votes').select('request_id,member_id,approve').then(ok),
     ]);
@@ -59,6 +59,7 @@ export const api = {
   decideGuest: (id, approve) => sb.rpc('decide_guest', { p_request: id, p_approve: approve }).then(ok),
   addGuest: (date, name, chargedTo) =>
     sb.rpc('add_guest', { p_date: date, p_name: name, p_charged_to: chargedTo || null }).then(ok),
+  claimRitual: (date) => sb.rpc('claim_ritual', { p_date: date }).then(ok),
   drawRitual: (date) => sb.rpc('draw_ritual', { p_date: date }).then(ok),
   passRitual: (date) => sb.rpc('pass_ritual', { p_date: date }).then(ok),
   setRitualKind: (date, kind) => sb.rpc('set_ritual_kind', { p_date: date, p_kind: kind }).then(ok),

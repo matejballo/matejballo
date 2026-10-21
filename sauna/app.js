@@ -1,7 +1,7 @@
 import { html, render, useState, useEffect, useMemo, useCallback } from 'https://cdn.jsdelivr.net/npm/htm@3.1.1/preact/standalone.module.js';
-import { api, configured } from './api.js?v=20261020i';
+import { api, configured } from './api.js?v=20261021a';
 
-const VERSION = '20261020i';
+const VERSION = '20261021a';
 
 // ---------- pomocníci ----------
 
@@ -39,6 +39,13 @@ function guestVoting(r, data, members) {
     mine: said,
   };
 }
+const DAY_IN = ['v neděli', 'v pondělí', 'v úterý', 've středu', 've čtvrtek', 'v pátek', 'v sobotu'];
+const atTime = (t) => `${[2, 4, 12, 14, 22].includes(Number(t.slice(0, 2))) ? 've' : 'v'} ${t}`;
+const openTime = (settings) => hhmm(settings?.signup_open_time, '12:00');
+const openDays = (settings) => settings?.signup_open_days ?? 1;
+const openAt = (settings, date) => new Date(`${iso(addDays(parse(date), -openDays(settings)))}T${openTime(settings)}:00`);
+const signupNotOpen = (settings, date) => new Date() < openAt(settings, date);
+const openDayLabel = (settings, date) => DAY_IN[addDays(parse(date), -openDays(settings)).getDay()];
 const afterDeadline = (date, time) => new Date() > new Date(`${date}T${time}:00`);
 const signupClosed = (settings, date) => afterDeadline(date, signupTime(settings));
 const drawClosed = (settings, date) => afterDeadline(date, drawTime(settings));
@@ -116,14 +123,26 @@ const ritualLabel = (k) => { const r = RITUALS.find((x) => x[0] === k); return r
 
 // [od kapek, °C, název, emoji]
 const LEVELS = [[0, 40, 'Vlažňák', '🫧'], [50, 60, 'Zahřátý', '🌤'], [120, 80, 'Rozpálený', '☀️'], [200, 90, 'Žhavý', '🔥'], [300, 100, 'Vroucí', '♨️'], [420, 110, 'Lávový', '🌋']];
-const levelOf = (k) => LEVELS.filter((l) => k >= l[0]).pop();
+const levelOf = (k) => LEVELS.filter((l) => k >= l[0]).pop() || LEVELS[0];
 const nextLevelOf = (k) => LEVELS.find((l) => l[0] > k);
 
-const POINTS = { visit: 10, streakStep: 2, streakMax: 20, host: 15, fire: 1, guest: 5, fullSeason: 50 };
+const kapkyText = (n) => (n < 0 ? `−${Math.abs(n)}` : String(n));
+const POINTS = { visit: 10, streak: 1, host: 15, fire: 1, guest: 5, fullSeason: 20, silent: 5 };
 const PRIZES = ['🧢 Saunová čepice', '🌿 Březová metlička', '🍺 Pivo'];
 
+// Mínus body: po uzávěrce zápisu se nikde neozval (ani "jdu", ani "nemůžu") včas.
+// Počítá se jen od data v nastavení, ať se nikdo netrestá zpětně.
+function silentOn(session, m, data, settings) {
+  const from = settings?.penalty_from;
+  if (!from || session.date < from) return false;
+  const deadline = new Date(`${session.date}T${signupTime(settings)}:00`);
+  if (new Date() <= deadline) return false;
+  const inTime = (row) => row.member_id === m.id && row.session_id === session.id && (!row.created_at || new Date(row.created_at) <= deadline);
+  return !(data.attendance.some(inTime) || (data.absences || []).some(inTime));
+}
+
 // Kapky, série a pořadí v sezóně. Počítají se jen úterky, které už proběhly.
-function game(season, data, members) {
+function game(season, data, members, settings) {
   const now = iso(today());
   const held = data.sessions.filter((s) => s.date <= now && data.attendance.some((a) => a.session_id === s.id));
   const heldIds = new Set(held.map((s) => s.id));
@@ -131,16 +150,17 @@ function game(season, data, members) {
   const hostOf = new Map(data.rituals.filter((r) => r.host_id).map((r) => [r.session_id, r.host_id]));
 
   const rows = members.filter((m) => !m.is_guest && m.active).map((m) => {
-    const p = { member: m, kapky: 0, visits: 0, streak: 0, best: 0, hosted: 0, fires: 0, guests: 0, full: false };
+    const p = { member: m, kapky: 0, visits: 0, streak: 0, best: 0, hosted: 0, fires: 0, guests: 0, silent: 0, full: false };
     let run = 0;
     for (const s of held) {
       if (att.has(`${s.id}|${m.id}`)) {
         run++;
         p.visits++;
-        p.kapky += POINTS.visit + Math.min(POINTS.streakStep * (run - 1), POINTS.streakMax);
+        p.kapky += POINTS.visit + (run > 1 ? POINTS.streak : 0);
         p.best = Math.max(p.best, run);
       } else run = 0;
       if (hostOf.get(s.id) === m.id) { p.hosted++; p.kapky += POINTS.host; }
+      if (silentOn(s, m, data, settings)) { p.silent++; p.kapky -= POINTS.silent; }
     }
     p.streak = run;
     p.fires = data.fires.filter((f) => heldIds.has(f.session_id) && hostOf.get(f.session_id) === m.id).length;
@@ -282,7 +302,7 @@ function Today({ ctx }) {
   const iGo = nextGoing.some((m) => m.id === me.id);
   const iWent = prevGoing.some((m) => m.id === me.id);
   const mine = season && data ? ledger(season, data, members).get(me.id) : null;
-  const score = season && data ? game(season, data, members).find((r) => r.member.id === me.id) : null;
+  const score = season && data ? game(season, data, members, settings).find((r) => r.member.id === me.id) : null;
   const lvl = score && levelOf(score.kapky);
   const nextSess = data?.sessions.find((s) => s.date === next);
   const ritual = nextSess && data.rituals.find((r) => r.session_id === nextSess.id);
@@ -294,6 +314,7 @@ function Today({ ctx }) {
   const free = Math.max(cap - nextGoing.length, 0);
   const full = free === 0;
   const pending = members.filter((m) => !m.is_guest && m.active && !nextGoing.some((g) => g.id === m.id) && !nextAbsent.some((a) => a.id === m.id));
+  const notOpen = !me.is_admin && signupNotOpen(settings, next);
   const closedNext = !me.is_admin && signupClosed(settings, next);
   const closedPrev = !me.is_admin && signupClosed(settings, prev);
   const adminName = members.find((m) => m.is_admin)?.name || 'admin';
@@ -312,7 +333,8 @@ function Today({ ctx }) {
             <span class="heat-note">${iGo ? 'jdeš taky ✓' : iOut ? 'nemůžeš' : full ? 'plno' : nextGoing.length ? '+ ty?' : 'buď první'}</span>
           </div>
         </div>
-        ${closedNext ? html`<div class="card muted small">🔒 Zápis skončil v ${signupTime(settings)}. ${iGo ? 'Jsi zapsaný, změnit to může už jen ' : iOut ? 'Máš zapsáno, že nemůžeš. Změnit to může už jen ' : 'Dopsat tě může už jen '}${adminName}.</div>`
+        ${notOpen ? html`<div class="card muted small">🔒 Zápis na tohle úterý se otevře ${openDayLabel(settings, next)} ${atTime(openTime(settings))} a zavře ${DAY_IN[parse(next).getDay()]} ${atTime(signupTime(settings))}.</div>`
+        : closedNext ? html`<div class="card muted small">🔒 Zápis skončil v ${signupTime(settings)}. ${iGo ? 'Jsi zapsaný, změnit to může už jen ' : iOut ? 'Máš zapsáno, že nemůžeš. Změnit to může už jen ' : 'Dopsat tě může už jen '}${adminName}.</div>`
         : iGo
           ? html`<button class="btn btn-ghost" onClick=${() => act(() => api.toggleAbsence(next, me.id), 'Škoda, dáme vědět dál.')}>Nakonec nemůžu 😰</button>`
           : html`
@@ -320,8 +342,10 @@ function Today({ ctx }) {
               <button class=${`btn btn-ghost ${iOut ? 'on' : ''}`} aria-pressed=${iOut} onClick=${() => act(() => api.toggleAbsence(next, me.id), iOut ? 'Dobře, zase s tebou počítáme.' : 'Dobře, dáme vědět dál.')}>Dnes nemůžu 😰</button>
               <button class="btn btn-fire" disabled=${full} onClick=${(e) => { steam(e.currentTarget); act(() => api.toggle(next, me.id), next === iso(today()) ? 'Zapsáno. +10 💧 a ručník s sebou 🧖' : 'Zapsáno. Ručník s sebou. 🧖'); }}>${full ? `Plno (${cap}/${cap})` : iOut ? 'Jdu přece 🔥' : 'Jdu se potit 🔥'}</button>
             </div>`}
-        ${!closedNext && html`<p class="muted small" style="margin:-6px 0 0">Zápis a odepsání do ${signupTime(settings)} v den sauny.</p>`}
-        ${(!closedNext || guestReqs.length > 0) && html`
+        ${!notOpen && !closedNext && html`<p class=${`small ${!iGo && !iOut ? 'warn' : 'muted'}`} style="margin:-6px 0 0">${!iGo && !iOut
+          ? `⏰ Zatím bez odpovědi. Do ${signupTime(settings)} klikni na jedno z tlačítek, jinak −${POINTS.silent} 💧.`
+          : `Změnit se to dá do ${signupTime(settings)} v den sauny.`}</p>`}
+        ${((!notOpen && !closedNext) || guestReqs.length > 0) && html`
           <div class="card">
             <div class="row between">
               <div><div class="sub">Host</div><b>${guestReqs.length ? 'Hlasujeme o hostovi' : 'Vezmeš někoho s sebou?'}</b></div>
@@ -366,7 +390,7 @@ function Today({ ctx }) {
           <button class="card row between link-card" onClick=${() => go('ritualy')}>
             <div><div class="sub">Rituál · ${short(next)}</div>
               <b>${host ? `${host.id === me.id ? 'Naběračka je tvoje 🪣' : `Vede ${host.name}`}` : 'Saunamistr zatím nevylosovaný'}</b>
-              ${ritual?.kind && html`<div class="muted small">${ritualLabel(ritual.kind)}</div>`}</div>
+              ${nextSess && ritualVotes(nextSess.id, data).kind && html`<div class="muted small">${ritualLabel(ritualVotes(nextSess.id, data).kind)}</div>`}</div>
             ${host ? html`<${Ava} m=${host} members=${members} size=${38} ring />` : html`<span class="big-num">🎲</span>`}
           </button>`}
       `}
@@ -374,7 +398,7 @@ function Today({ ctx }) {
         <button class="card link-card me-score" onClick=${() => go('sezona')}>
           <div class="row between">
             <div><div class="sub">${season.name} · ${score.rank}. místo</div><b>${lvl[1]}° ${lvl[2]} ${lvl[3]}</b></div>
-            <span class="mono big-num shimmer">💧 ${score.kapky}</span>
+            <span class="mono big-num shimmer">💧 ${kapkyText(score.kapky)}</span>
           </div>
           <div class="row" style="gap:8px;margin-top:10px">
             <span class="streak">🔥 ${score.streak} ${score.streak === 1 ? 'týden' : score.streak >= 2 && score.streak <= 4 ? 'týdny' : 'týdnů'}</span>
@@ -398,6 +422,78 @@ function Today({ ctx }) {
 
 // ---------- Sezóna ----------
 
+// ---------- Pronájem po večerech ----------
+
+function rentalBreakdown(season, data) {
+  const now = iso(today());
+  const price = season.price_per_person;
+  const rows = data.sessions
+    .map((s) => ({ s, people: data.attendance.filter((a) => a.session_id === s.id).length }))
+    .filter((r) => r.people > 0)
+    .map((r) => ({ ...r, collected: r.people * price, rental: season.rental_price, diff: r.people * price - season.rental_price, plan: r.s.date > now }));
+  const done = rows.filter((r) => !r.plan);
+  return { rows, total: done.reduce((t, r) => t + r.diff, 0), collected: done.reduce((t, r) => t + r.collected, 0), rental: done.reduce((t, r) => t + r.rental, 0), breakEven: Math.ceil(season.rental_price / price) };
+}
+
+const sign = (n) => (n > 0 ? '+' : n < 0 ? '−' : '');
+const diffColor = (n) => (n > 0 ? 'var(--plamen)' : n < 0 ? '#FF6B5E' : 'var(--para-mute)');
+
+function BalanceChart({ rows }) {
+  const slot = 64, pad = 16, half = 68;
+  const W = Math.max(rows.length * slot + pad * 2, 280);
+  const u = half / Math.max(200, ...rows.map((r) => Math.abs(r.diff)));
+  const mid = 26 + Math.max(0, ...rows.map((r) => r.diff)) * u;
+  const H = mid + Math.max(0, ...rows.map((r) => -r.diff)) * u + 78;
+  return html`
+    <div class="chart-wrap">
+      <svg viewBox=${`0 0 ${W} ${H}`} style=${`width:100%;min-width:${W}px`} role="img" aria-label="Rozdíl mezi vybranou částkou a pronájmem po večerech">
+        <line x1=${pad / 2} x2=${W - pad / 2} y1=${mid} y2=${mid} stroke="var(--para-mute)" stroke-dasharray="3 4" opacity=".6" />
+        ${rows.map((r, i) => {
+          const cx = pad + i * slot + slot / 2;
+          const h = r.diff ? Math.max(Math.abs(r.diff) * u, 4) : 2;
+          const up = r.diff >= 0;
+          const col = diffColor(r.diff);
+          return html`<g opacity=${r.plan ? 0.45 : 1}>
+            <rect x=${cx - 17} y=${up ? mid - h : mid} width="34" height=${h} rx="6" fill=${col} />
+            <text x=${cx} y=${up ? mid - h - 6 : mid + h + 14} text-anchor="middle" font-size="11" font-weight="700" fill=${col} font-family="JetBrains Mono, monospace">${sign(r.diff)}${Math.abs(r.diff)}</text>
+            <text x=${cx} y=${H - 24} text-anchor="middle" font-size="11" fill="var(--para-dim)" font-family="JetBrains Mono, monospace">${short(r.s.date)}</text>
+            <text x=${cx} y=${H - 8} text-anchor="middle" font-size="11" fill="var(--para-mute)">${r.people} ${cz(r.people, 'člověk', 'lidi', 'lidí')}</text>
+          </g>`;
+        })}
+      </svg>
+    </div>`;
+}
+
+function RentalSection({ season, data, cap }) {
+  const b = rentalBreakdown(season, data);
+  if (!b.rows.length) return null;
+  const tone = b.total < 0 ? 'minus' : b.total > 0 ? 'plus' : 'nula';
+  const maxGain = cap * season.price_per_person - season.rental_price;
+  return html`
+    <h2 class="h2">Pronájem po večerech</h2>
+    <div class=${`balance ${tone}`}>
+      <div class="sub">${tone === 'minus' ? 'Zatím v mínusu' : tone === 'plus' ? 'Zatím v plusu' : 'Zatím na nule'}</div>
+      <div class="balance-num">${sign(b.total)}${kc(Math.abs(b.total))}</div>
+      <p>Při ${kc(season.price_per_person)} na osobu pokryje večer pronájem ${kc(season.rental_price)} od <b>${b.breakEven} lidí</b>. Méně lidí je mínus, víc je plus.${maxGain > 0 ? ` Večer s ${cap} lidmi přidá ${kc(maxGain)}.` : ''}</p>
+    </div>
+    <div class="card"><${BalanceChart} rows=${b.rows} />
+      <p class="muted small" style="margin:6px 0 0"><span style="color:var(--plamen)">■</span> večer v plusu (${b.breakEven + 1}+ lidí) · <span style="color:#FF6B5E">■</span> v mínusu (méně než ${b.breakEven}). Světlé sloupce jsou plánované úterky.</p></div>
+    <div class="card bal-card">
+      <table class="bal">
+        <thead><tr><th>Večer</th><th>Lidí</th><th>Vybráno</th><th>Rozdíl</th></tr></thead>
+        <tbody>
+          ${b.rows.map((r) => html`<tr class=${r.plan ? 'plan' : ''}>
+            <td>${short(r.s.date)}${r.plan ? html` <span class="tag">plán</span>` : ''}</td>
+            <td class="mono">${r.people}</td><td class="mono">${kc(r.collected)}</td>
+            <td class="mono" style=${`color:${diffColor(r.diff)}`}>${sign(r.diff)}${kc(Math.abs(r.diff))}</td></tr>`)}
+          <tr class="foot"><td><b>Celkem</b></td><td class="mono">${b.rows.filter((r) => !r.plan).reduce((t, r) => t + r.people, 0)}</td><td class="mono">${kc(b.collected)}</td>
+            <td class="mono" style=${`color:${diffColor(b.total)}`}><b>${sign(b.total)}${kc(Math.abs(b.total))}</b></td></tr>
+        </tbody>
+      </table>
+      <p class="muted small" style="margin:8px 4px 10px">Pronájem ${kc(season.rental_price)} za večer · celkem ${kc(b.rental)} (${b.rows.filter((r) => !r.plan).length}× večer). Rozdíl = vybráno − pronájem.</p>
+    </div>`;
+}
+
 function SeasonPicker({ ctx }) {
   const { seasons, season, setSeasonId } = ctx;
   return html`<div class="chips">${seasons.map((s) => html`
@@ -414,15 +510,12 @@ function Season({ ctx }) {
   const guestIds = new Set(data.attendance.map((a) => a.member_id));
   const rows = members.filter((m) => (!m.is_guest && m.active) || guestIds.has(m.id));
   const limit = iso(addDays(today(), 7));
-  const canEdit = (m, date) => me.is_admin || (m.id === me.id && !season.closed_at && date <= limit && !signupClosed(settings, date));
+  const canEdit = (m, date) => me.is_admin || (m.id === me.id && !season.closed_at && date <= limit && !signupNotOpen(settings, date) && !signupClosed(settings, date));
 
-  const board = game(season, data, members);
+  const board = game(season, data, members, settings);
   const prizes = season.prizes?.length ? season.prizes : PRIZES;
   const holders = (place) => board.filter((r) => r.visits > 0 && r.rank === place);
   const left = season.closed_at ? 0 : tuesdaysLeft(season);
-
-  const collected = data.attendance.length * season.price_per_person;
-  const rental = data.sessions.filter((s) => data.attendance.some((a) => a.session_id === s.id)).length * season.rental_price;
 
   return html`
     <section class="page wide">
@@ -448,8 +541,8 @@ function Season({ ctx }) {
               <span class="pos">${r.visits ? `${r.rank}.` : '–'}</span>
               <${Ava} m=${r.member} members=${members} size=${36} ring=${r.streak >= 3} />
               <div class="grow"><b>${r.member.name}${r.rank === 1 && r.visits ? ' 👑' : ''}</b>
-                <small>${l[1]}° ${l[2]}${r.streak >= 2 ? ` · 🔥 ${r.streak}` : ''}${r.hosted ? ` · 🪣 ${r.hosted}` : ''}${r.full ? ' · 🏅 celá sezóna' : ''}</small></div>
-              <span class=${`pts ${r.rank === 1 && r.visits ? 'shimmer' : ''}`}>💧 ${r.kapky}</span>
+                <small>${l[1]}° ${l[2]}${r.streak >= 2 ? ` · 🔥 ${r.streak}` : ''}${r.hosted ? ` · 🪣 ${r.hosted}` : ''}${r.full ? ' · 🏅 celá sezóna' : ''}${r.silent ? ` · 🤐 −${r.silent * POINTS.silent}` : ''}</small></div>
+              <span class=${`pts ${r.rank === 1 && r.visits ? 'shimmer' : ''}`}>💧 ${kapkyText(r.kapky)}</span>
             </div>`;
         })}
       </div>
@@ -458,14 +551,17 @@ function Season({ ctx }) {
         <summary>Jak se sbírají kapky 💧</summary>
         <table>
           <tr><td>Účast v sauně</td><td>+${POINTS.visit}</td></tr>
-          <tr><td>Série (každý další úterek v řadě)</td><td>+${POINTS.streakStep}× série, max +${POINTS.streakMax}</td></tr>
+          <tr><td>Série (každý další úterek v řadě)</td><td>+${POINTS.streak}</td></tr>
           <tr><td>Vedení rituálu</td><td>+${POINTS.host}</td></tr>
           <tr><td>Každý 🔥 za tvůj rituál</td><td>+${POINTS.fire}</td></tr>
           <tr><td>Přivedený host</td><td>+${POINTS.guest}</td></tr>
           <tr><td>Celá sezóna bez absence</td><td>+${POINTS.fullSeason}</td></tr>
+          <tr><td>Nezareagoval(a) jsi do uzávěrky (ani „jdu“, ani „nemůžu“)</td><td class="neg">−${POINTS.silent}</td></tr>
         </table>
         <p class="muted small">Teploměr: ${LEVELS.map((l) => `${l[1]}° ${l[2]} (${l[0]}+)`).join(' · ')}</p>
       </details>
+
+      <${RentalSection} season=${season} data=${data} cap=${capacityOf(settings)} />
 
       <h2 class="h2">Docházka</h2>
       <div class="grid-wrap">
@@ -488,15 +584,20 @@ function Season({ ctx }) {
         </table>
       </div>
       ${!data.sessions.length && html`<p class="muted">Zatím žádné úterky. První se založí, jakmile se někdo zapíše.</p>`}
-      <div class="stats">
-        <div class="card"><div class="sub">Vybráno</div><b class="mono">${kc(collected)}</b></div>
-        <div class="card"><div class="sub">Pronájem</div><b class="mono">${kc(rental)}</b></div>
-        <div class="card"><div class="sub">${collected >= rental ? 'Přebytek' : 'Chybí na pronájem'}</div><b class=${`mono ${collected >= rental ? 'fire-txt' : 'due'}`}>${kc(Math.abs(collected - rental))}</b></div>
-      </div>
     </section>`;
 }
 
 // ---------- Rituály ----------
+
+// Rituál vybírá parta hlasováním (host ho jen vede). Při shodě hlasů rozhodne saunamistr.
+function ritualVotes(sessionId, data) {
+  const votes = sessionId ? data.votes.filter((v) => v.session_id === sessionId) : [];
+  const tally = RITUALS.map(([k, i, l]) => ({ k, i, l, n: votes.filter((v) => v.kind === k).length }));
+  const max = Math.max(0, ...tally.map((t) => t.n));
+  const leaders = max > 0 ? tally.filter((t) => t.n === max) : [];
+  const ritual = sessionId ? data.rituals.find((r) => r.session_id === sessionId) : null;
+  return { tally, max, leaders, kind: ritual?.kind || (leaders.length === 1 ? leaders[0].k : null), tie: leaders.length > 1 && !ritual?.kind };
+}
 
 function Rituals({ ctx }) {
   const { me, members, season, data, act, settings } = ctx;
@@ -512,10 +613,11 @@ function Rituals({ ctx }) {
   const ritual = sess && data.rituals.find((r) => r.session_id === sess.id);
   const host = ritual?.host_id && members.find((m) => m.id === ritual.host_id);
   const passed = (ritual?.passed || []).map((id) => members.find((m) => m.id === id)?.name).filter(Boolean);
-  const votes = sess ? data.votes.filter((v) => v.session_id === sess.id) : [];
-  const myVote = votes.find((v) => v.member_id === me.id)?.kind;
-  const tally = RITUALS.map(([k, i, l]) => ({ k, i, l, n: votes.filter((v) => v.kind === k).length }));
-  const maxVotes = Math.max(0, ...tally.map((t) => t.n));
+  const rv = ritualVotes(sess?.id, data);
+  const myVote = sess ? data.votes.find((v) => v.session_id === sess.id && v.member_id === me.id)?.kind : null;
+  const iHost = host?.id === me.id;
+  const canVote = iGo && !iHost;
+  const hostPicks = iHost && rv.tie;
   const chances = sess && !host ? hostChances(sess, data, members) : [];
   const fireCount = (sid) => data.fires.filter((f) => f.session_id === sid).length;
 
@@ -544,7 +646,8 @@ function Rituals({ ctx }) {
         <div class="card host-card">
           <${Ava} m=${host} members=${members} size=${72} ring />
           <b class="host-name">${host.name}</b>
-          <div class="muted">${ritual.kind ? ritualLabel(ritual.kind) : maxVotes ? `Parta chce: ${tally.filter((t) => t.n === maxVotes).map((t) => `${t.i} ${t.l}`).join(', ')}` : 'Typ rituálu zatím nevybraný'}</div>
+          <div class="muted">${rv.kind ? `${ritualLabel(rv.kind)} · vybrala parta` : rv.tie ? `Shoda hlasů: ${rv.leaders.map((t) => `${t.i} ${t.l}`).join(', ')}` : 'Parta zatím nehlasovala'}</div>
+          <div class="muted small">Rituál trvá minimálně 5 minut.</div>
           ${passed.length > 0 && html`<div class="muted small">Předali: ${passed.join(', ')}</div>`}
           ${host.id === me.id && !drawLocked && html`
             <div class="row wrap" style="justify-content:center">
@@ -554,7 +657,7 @@ function Rituals({ ctx }) {
 
       ${open && !host && goingIds.length > 0 && html`
         <div class="card">
-          <div class="sub">Šance na naběračku</div>
+          <div class="sub">Kdo vede rituál? · šance při losu</div>
           ${chances.map((c) => html`
             <div class="chance">
               <${Ava} m=${c.member} members=${members} size=${30} />
@@ -566,27 +669,32 @@ function Rituals({ ctx }) {
           ${chances.length === 0 && html`<p class="muted small">Všichni předali. Naběračka zůstává volná.</p>`}
           ${drawLocked && chances.length > 0 ? html`<p class="muted small">🔒 Los skončil v ${drawTime(settings)}. Saunamistra teď může určit už jen ${adminName}.</p>`
             : (iGo || me.is_admin) && chances.length > 0
-            ? html`<button class="btn btn-fire" style="width:100%;margin-top:12px" onClick=${() => act(() => api.drawRitual(next), 'Los padl! 🎲')}>🎲 Losovat saunamistra</button>`
+            ? html`${iGo && html`<button class="btn btn-fire" style="width:100%;margin-top:12px" onClick=${() => act(() => api.claimRitual(next), 'Naběračka je tvoje 🪣')}>🪣 Chci rituál</button>`}
+              <button class=${`btn ${iGo ? 'btn-ghost' : 'btn-fire'}`} style="width:100%;margin-top:8px" onClick=${() => act(() => api.drawRitual(next), 'Los padl! 🎲')}>${iGo ? '🎲 Nebo vylosovat' : '🎲 Losovat saunamistra'}</button>
+              <p class="muted small" style="margin:8px 0 0">Kdo chce rituál vést, ťukne na „Chci rituál“ a má ho. Když se nikdo nepřihlásí, losuje se. Rituál trvá minimálně 5 minut.</p>`
             : chances.length > 0 && html`<p class="muted small">Losovat může kdokoliv, kdo jde, do ${drawTime(settings)} v den sauny.</p>`}
         </div>`}
 
       ${open && goingIds.length > 0 && html`
         <div class="card">
-          <div class="row between"><div class="sub">${host?.id === me.id ? 'Vyber rituál' : 'Na co je chuť?'}</div>
-            ${!iGo && html`<span class="muted small">hlasují ti, kdo jdou</span>`}</div>
+          <div class="row between"><div class="sub">${iHost ? 'Co ti parta vybrala' : 'Na co je chuť? Hlasuje parta'}</div>
+            ${!iGo && !iHost && html`<span class="muted small">hlasují ti, kdo jdou</span>`}</div>
           <div class="vote-grid">
-            ${tally.map((t) => {
-              const chosen = ritual?.kind === t.k;
-              const onClick = host?.id === me.id
-                ? () => act(() => api.setRitualKind(next, chosen ? '' : t.k), chosen ? null : `Rituál: ${t.i} ${t.l}`)
+            ${rv.tally.map((t) => {
+              const chosen = rv.kind === t.k;
+              const pickable = hostPicks && rv.leaders.some((l) => l.k === t.k);
+              const onClick = pickable
+                ? () => act(() => api.setRitualKind(next, t.k), `Rituál: ${t.i} ${t.l}`)
                 : () => act(() => api.voteRitual(next, t.k));
               return html`
-                <button class=${`vote-chip ${myVote === t.k ? 'mine' : ''} ${chosen ? 'chosen' : ''}`} disabled=${!iGo && host?.id !== me.id} onClick=${onClick}>
+                <button class=${`vote-chip ${myVote === t.k ? 'mine' : ''} ${chosen ? 'chosen' : ''}`} disabled=${!(canVote || pickable)} onClick=${onClick}>
                   <span>${t.i} ${t.l}</span>${t.n > 0 && html`<b class="mono">${t.n}</b>`}
                 </button>`;
             })}
           </div>
-          ${host?.id === me.id && html`<p class="muted small">Jako saunamistr vybíráš finální rituál. Čísla jsou hlasy party.</p>`}
+          <p class="muted small" style="margin:10px 0 0">${iHost
+            ? (rv.tie ? 'Hlasy se rovnají. Vyber jeden z rituálů s nejvíc hlasy.' : 'Rituál vybírá parta hlasováním, ty ho vedeš. Minimálně 5 minut.')
+            : 'Vyhrává rituál s nejvíc hlasy. Saunamistr ho vede minimálně 5 minut.'}</p>
         </div>`}
 
       ${last && html`
@@ -594,7 +702,7 @@ function Rituals({ ctx }) {
           <div class="sub">Minulý rituál · ${short(last.s.date)}</div>
           <div class="row" style="margin-top:8px">
             <${Ava} m=${lastHost} members=${members} size=${40} />
-            <div class="grow"><b>${lastHost?.name}</b><div class="muted small">${last.r.kind ? ritualLabel(last.r.kind) : 'rituál'}</div></div>
+            <div class="grow"><b>${lastHost?.name}</b><div class="muted small">${ritualVotes(last.s.id, data).kind ? ritualLabel(ritualVotes(last.s.id, data).kind) : 'rituál'}</div></div>
             <span class="mono fire-txt">🔥 ${fireCount(last.s.id)}</span>
           </div>
           ${iWasThere && lastHost?.id !== me.id && html`
@@ -609,7 +717,7 @@ function Rituals({ ctx }) {
             const h = members.find((m) => m.id === r.host_id);
             return html`<div class="row between line">
               <span class="row"><span class="mono small muted">${short(s.date)}</span> ${h?.name}</span>
-              <span class="muted small">${r.kind ? ritualLabel(r.kind) : ''} 🔥 ${fireCount(s.id)}</span></div>`;
+              <span class="muted small">${ritualVotes(s.id, data).kind ? ritualLabel(ritualVotes(s.id, data).kind) : ''} 🔥 ${fireCount(s.id)}</span></div>`;
           })}
         </div>`}
     </section>`;
@@ -667,7 +775,8 @@ function Admin({ ctx }) {
   const [rcp, setRcp] = useState(settings.recipient || '');
   const [edit, setEdit] = useState(null);
   const [guest, setGuest] = useState({ date: iso(nextTuesday()), name: '', chargedTo: '' });
-  const [dl, setDl] = useState({ signup: signupTime(settings), draw: drawTime(settings), cap: capacityOf(settings) });
+  const [dl, setDl] = useState({ signup: signupTime(settings), draw: drawTime(settings), cap: capacityOf(settings), open: openTime(settings), openDays: openDays(settings), from: settings.penalty_from || '' });
+  const [attDate, setAttDate] = useState(iso(nextTuesday()));
   const nextDate = iso(nextTuesday());
   const nextSess = data?.sessions.find((s) => s.date === nextDate);
   const nextRitual = nextSess && data.rituals.find((r) => r.session_id === nextSess.id);
@@ -747,6 +856,45 @@ function Admin({ ctx }) {
             </div>`)}
         </div>`}
 
+      ${season && data && (() => {
+        const tuesdays = [];
+        for (let d = parse(season.starts_on); iso(d) <= season.ends_on && iso(d) <= nextDate; d = addDays(d, 1)) if (d.getDay() === 2) tuesdays.push(iso(d));
+        data.sessions.forEach((x) => { if (!tuesdays.includes(x.date)) tuesdays.push(x.date); });
+        tuesdays.sort().reverse();
+        const sess = data.sessions.find((x) => x.date === attDate);
+        const attIds = new Set(sess ? data.attendance.filter((a) => a.session_id === sess.id).map((a) => a.member_id) : []);
+        const absIds = new Set(sess ? data.absences.filter((a) => a.session_id === sess.id).map((a) => a.member_id) : []);
+        const list = members.filter((m) => (!m.is_guest && m.active) || attIds.has(m.id));
+        const stateOf = (m) => (attIds.has(m.id) ? 'in' : absIds.has(m.id) ? 'out' : 'none');
+        const setPresence = (m, target) => {
+          const cur = stateOf(m);
+          if (cur === target) return;
+          const viaAttendance = target === 'in' || (target === 'none' && cur === 'in');
+          act(() => (viaAttendance ? api.toggle(attDate, m.id) : api.toggleAbsence(attDate, m.id)), null, true);
+        };
+        const silentFlag = (m) => sess && !m.is_guest && silentOn(sess, m, data, settings);
+        return html`
+          <div class="card">
+            <div class="sub">Docházka · zaklikávání</div>
+            <label class="inline">Úterý
+              <select value=${attDate} onChange=${(e) => setAttDate(e.target.value)}>
+                ${tuesdays.map((d) => html`<option value=${d}>${long(d)}${d === nextDate ? ' (příští)' : ''}</option>`)}
+              </select></label>
+            <div class="muted small" style="margin:6px 0">Byli: <b>${attIds.size}</b>/${capacityOf(settings)} · Nemohli: <b>${absIds.size}</b></div>
+            ${list.map((m) => { const st = stateOf(m); return html`
+              <div class="att-row">
+                <${Ava} m=${m} members=${members} size=${28} off=${st === 'out'} />
+                <span class="grow"><b>${m.name}</b>${m.is_guest ? html` <span class="tag">host</span>` : ''}${silentFlag(m) ? html` <span class="tag" title="Nezareagoval včas">🤐 −${POINTS.silent}</span>` : ''}</span>
+                <div class="seg" role="group" aria-label=${m.name}>
+                  <button class=${st === 'in' ? 'on in' : ''} onClick=${() => setPresence(m, 'in')}>✓ Byl</button>
+                  <button class=${st === 'out' ? 'on out' : ''} onClick=${() => setPresence(m, 'out')}>😰</button>
+                  <button class=${st === 'none' ? 'on' : ''} onClick=${() => setPresence(m, 'none')}>–</button>
+                </div>
+              </div>`; })}
+            <p class="muted small" style="margin:8px 0 0">„😰“ = nemohl, „–“ = bez odpovědi. Kdo přišel a včas se neozval, má štítek 🤐 −${POINTS.silent}. Zapsat ho až dodatečně ten štítek nesmaže.</p>
+          </div>`;
+      })()}
+
       ${season && data && html`
         <div class="card form">
           <div class="sub">Losování saunamistra · ${long(nextDate)}</div>
@@ -756,15 +904,20 @@ function Admin({ ctx }) {
             onClick=${() => confirm('Resetovat losování? Saunamistr i seznam těch, kdo předali, se smaže a může se losovat znovu.') && act(() => api.resetRitual(nextSess.id), 'Losování resetované 🎲')}>Resetovat losování</button>
         </div>`}
 
-      <form class="card form" onSubmit=${(e) => { e.preventDefault(); act(() => api.saveSettings({ signup_deadline: dl.signup, draw_deadline: dl.draw, capacity: Number(dl.cap) }), 'Uloženo', true); }}>
+      <form class="card form" onSubmit=${(e) => { e.preventDefault(); act(() => api.saveSettings({ signup_deadline: dl.signup, draw_deadline: dl.draw, capacity: Number(dl.cap), signup_open_time: dl.open, signup_open_days: Number(dl.openDays), penalty_from: dl.from || null }), 'Uloženo', true); }}>
         <div class="sub">Zápis a uzávěrky</div>
         <label>Kapacita sauny (lidí včetně hostů) <input type="number" min="1" max="50" value=${dl.cap} onInput=${(e) => setDl({ ...dl, cap: e.target.value })} /></label>
         <div class="row">
-          <label>Zápis do <input type="time" value=${dl.signup} onInput=${(e) => setDl({ ...dl, signup: e.target.value })} /></label>
+          <label>Zápis se otevře (dnů před) <input type="number" min="0" max="6" value=${dl.openDays} onInput=${(e) => setDl({ ...dl, openDays: e.target.value })} /></label>
+          <label>V kolik hodin <input type="time" value=${dl.open} onInput=${(e) => setDl({ ...dl, open: e.target.value })} /></label>
+        </div>
+        <div class="row">
+          <label>Zápis zavře v <input type="time" value=${dl.signup} onInput=${(e) => setDl({ ...dl, signup: e.target.value })} /></label>
           <label>Los saunamistra do <input type="time" value=${dl.draw} onInput=${(e) => setDl({ ...dl, draw: e.target.value })} /></label>
         </div>
-        <p class="muted small" style="margin:0">Po uzávěrce nikdo kromě admina nezapíše ani neodepíše účast a nelosuje.</p>
-        <button class="btn btn-ghost btn-sm" disabled=${!dl.signup || !dl.draw || !(Number(dl.cap) >= 1)}>Uložit</button>
+        <label>Mínus body za mlčení od <input type="date" value=${dl.from} onInput=${(e) => setDl({ ...dl, from: e.target.value })} /></label>
+        <p class="muted small" style="margin:0">Teď: zápis se otevírá ${DAY_IN[addDays(parse(nextDate), -(Number(dl.openDays) || 0)).getDay()]} ${atTime(dl.open || '12:00')} a zavírá ${DAY_IN[parse(nextDate).getDay()]} ${atTime(dl.signup || '18:30')}. Mimo to okno nikdo kromě admina nezapíše ani neodepíše účast. Kdo se v okně neozve ani jedním tlačítkem, dostane −${POINTS.silent} 💧 (jen u úterků od zvoleného data, prázdné = nikdy).</p>
+        <button class="btn btn-ghost btn-sm" disabled=${!dl.signup || !dl.draw || !dl.open || !(Number(dl.cap) >= 1)}>Uložit</button>
       </form>
 
       <form class="card form" onSubmit=${(e) => { e.preventDefault(); if (!guest.name.trim()) return; act(() => api.addGuest(guest.date, guest.name, guest.chargedTo), `Host ${guest.name} přidán`, true).then(() => setGuest({ ...guest, name: '' })); }}>

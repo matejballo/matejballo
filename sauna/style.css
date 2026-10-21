@@ -286,3 +286,33 @@ a { color: inherit; }
 .login h1 { padding: 0 .08em; } /* ať se poslední písmeno s gradientem neořízne */
 .guest-req { padding: 12px 0; border-top: 1px solid var(--uhlik-3); margin-top: 12px; }
 .btn-fire.voted { box-shadow: 0 0 0 2px rgba(255,243,230,.35), 0 8px 28px -8px rgba(255,90,31,.7); }
+.warn { color: var(--plamen); font-weight: 500; }
+
+/* ---------- pronájem po večerech ---------- */
+.balance { padding: 18px; border-radius: 22px; border: 1px solid var(--uhlik-3); background: var(--uhlik-2); }
+.balance-num { font: 800 clamp(38px, 11vw, 54px)/1 var(--f-display); letter-spacing: -.03em; margin: 6px 0 8px; }
+.balance p { margin: 0; color: var(--para-dim); font-size: 14px; }
+.balance.minus { border-color: rgba(255,107,94,.45); background: radial-gradient(70% 100% at 0% 0%, rgba(215,38,30,.22), transparent), var(--uhlik-2); }
+.balance.minus .balance-num { color: #FF6B5E; }
+.balance.plus { border-color: rgba(255,182,39,.5); background: radial-gradient(70% 100% at 0% 0%, rgba(255,182,39,.2), transparent), var(--uhlik-2); }
+.balance.plus .balance-num { color: var(--plamen); }
+.chart-wrap { overflow-x: auto; margin: 0 -4px; }
+.bal-card { padding: 6px 12px; overflow-x: auto; }
+.bal { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bal th { text-align: right; font: 500 11px var(--f-mono); color: var(--para-mute); padding: 10px 6px; }
+.bal th:first-child, .bal td:first-child { text-align: left; }
+.bal td { text-align: right; padding: 9px 6px; border-top: 1px solid var(--uhlik-3); white-space: nowrap; }
+.bal tr.plan { opacity: .55; }
+.bal tr.foot td { border-top: 2px solid var(--uhlik-3); }
+.rules td.neg { color: #FF6B5E !important; }
+
+/* ---------- admin: docházka ---------- */
+.att-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--uhlik-3); }
+.seg { display: inline-flex; border: 1px solid var(--uhlik-3); border-radius: 99px; overflow: hidden; flex: none; }
+.seg button { height: 36px; padding: 0 12px; border: 0; background: transparent; color: var(--para-dim); font-size: 13px; font-weight: 700; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--uhlik-3); }
+.seg button.on { background: rgba(255,243,230,.12); color: var(--para); }
+.seg button.on.in { background: var(--ohen); color: var(--uhlik); }
+.seg button.on.out { background: rgba(255,107,94,.2); color: #FF9C92; }
+label.inline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--para-dim); }
+label.inline select { flex: 1; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--uhlik-3); background: var(--uhlik); color: var(--para); }
